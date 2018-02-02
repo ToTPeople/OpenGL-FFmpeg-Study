@@ -7,6 +7,7 @@
 //
 
 #include "othertest.hpp"
+#include <unistd.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include "common_define.h"
@@ -17,13 +18,23 @@
 
 #define AAA (1.0f)
 static const GLfloat g_vertex_buffer_data[] = {
-    -1.0f, 1.0f, 0.0f,
+    /*-1.0f, 1.0f, 0.0f,
     -1.0f, -1.0f, 0.0f,
-    1.0f,  4.0f, 0.0f,
-    1.0f, -1.00f, 0.0f,
+    1.0f,  1.0f, 0.0f,
+    1.0f, -1.00f, 0.0f,*/
+    
+    -0.7f, 1.0f, 0.0f,
+    -0.7f, -0.8f, 0.0f,
+    0.70f,  1.0f, 0.0f,
+    0.70f, -0.80f, 0.0f,
 };
 
 static const GLfloat g_uv_buffer_data[] = {
+    1.0, 0.0,
+    1.0, 1.0,
+    0.0, 0.0,
+    0.0, 1.0,
+    
     0.0, 1.0,//0.748573, 0.750412,
     0.0, 0.0,//0.749279, 0.501284,
     1.0, 1.0,//0.999110, 0.501077,
@@ -47,8 +58,7 @@ const char* const kszVtxPos = "vertexPosition_modelspace";
 const char* const kszUVPos = "vertexUV";
 const char* const kszMyTextureSampler = "myTextureSampler";
 
-const char* const kszTexturePath = "441H.jpg";
-const char* const kszTextureAnother = "another.bmp";
+const char* const kszTexturePath = "./bmp/filename_0.bmp";//"441H.jpg";
 
 
 int DrawElementTest()
@@ -114,7 +124,6 @@ int DrawElementTest()
         return -1;
     }
     pTexture->SetImagePath(kszTexturePath);
-    //pTexture->SetImagePath(kszTextureAnother);
     pTexture->LoadTexture(LOAD_TEXTURE_TYPE_BMP);
     
     GLuint textureID = pShader->GetAttribByString(SHADER_ATTR_GET_UNIFORM, kszMyTextureSampler);
@@ -208,8 +217,16 @@ int DrawElementTest()
     
 #endif
     
+    int idx = 0;
+    char *filename = new char[64];
+    
     do
     {
+        if (idx > 298)
+        {
+            break;
+        }
+        
 #ifdef TEST_FBO
         //glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
         glViewport(0, 0, window.GetWinWidth()*2, window.GetWinHeight()*2);
@@ -219,6 +236,11 @@ int DrawElementTest()
         glClear(GL_COLOR_BUFFER_BIT);
         
         pShader->UseProgram();
+        
+        // 更新纹理
+        sprintf(filename, "./bmp/filename_%d.bmp", idx++);
+        pTexture->UpdateTexture(std::string(filename));
+        printf("[############ 333]  idx = %d \n", idx);
         
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(pTexture->GetTarget(), pTexture->GetHandleID());
@@ -274,6 +296,8 @@ int DrawElementTest()
         
         glfwSwapBuffers(window.GetWindows());
         glfwPollEvents();
+        
+        usleep(30 * 1000);
     } while (glfwWindowShouldClose(window.GetWindows()) == 0
              && glfwGetKey(window.GetWindows(), GLFW_KEY_ESCAPE) != GLFW_PRESS);
     

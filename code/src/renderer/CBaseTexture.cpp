@@ -53,6 +53,71 @@ void CBaseTexture::LoadTexture(int nLoadType)
     }
 }
 
+void CBaseTexture::UpdateTexture(const std::string &strPath)
+{
+    if (strPath.empty())
+    {
+        printf("[CBaseTexture::UpdateTexture] error: image path is empty.\n");
+        return;
+    }
+    
+    //unsigned int width, height;
+    int width, height;
+    int nChannel;
+    // Actual RGB data
+    unsigned char * data;
+    GLenum format = GL_RGB;
+    
+    data = stbi_load(strPath.c_str(), &width, &height, &nChannel, 0);
+    if (NULL == data)
+    {
+        printf("[CBaseTexture::UpdateTexture] -=-=-=-=-=-=-=-= loadfile failed \n");
+        return;
+    }
+    
+    if (nChannel == 1)
+        format = GL_RED;
+    else if (nChannel == 3)
+        format = GL_RGB;
+    else if (nChannel == 4)
+        format = GL_RGBA;
+    
+    glBindTexture(GL_TEXTURE_2D, m_uHandleID);
+    
+    // Give the image to OpenGL
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, format, GL_UNSIGNED_BYTE, data);
+    
+    // Generate mipmaps, by the way.
+    glGenerateMipmap(GL_TEXTURE_2D);
+    
+    STBI_FREE(data);
+}
+
+void CBaseTexture::UpdateTexture(const void *pData, int width, int height, bool bReGenerate /* = false */)
+{
+    if (NULL == pData || width <=0 || height <= 0)
+    {
+        printf("[CBaseTexture::UpdateTexture] warning: parametre is invalid. pData[%p], width[%d], height[%d]\n", pData, width, height);
+        return;
+    }
+    
+    glBindTexture(GL_TEXTURE_2D, m_uHandleID);
+    
+    if (bReGenerate)
+    {
+        glTexImage2D(m_uTarget, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pData);
+        glGenerateMipmap(m_uTarget);
+    }
+    else
+    {
+        // update the image to OpenGL
+        glTexSubImage2D(m_uTarget, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pData);
+#ifdef TEST_FBO
+        glGenerateMipmap(GL_TEXTURE_2D);
+#endif
+    }
+}
+
 unsigned int CBaseTexture::GetHandleID()
 {
     return m_uHandleID;
@@ -80,6 +145,7 @@ unsigned int CBaseTexture::LoadBMPCustom(const char * imagepath)
     // Actual RGB data
     unsigned char * data;
     GLenum format = GL_RGB;
+//#define AA
 #ifdef AA
     // Open the file
     FILE * file = fopen(imagepath,"rb");
@@ -141,8 +207,6 @@ unsigned int CBaseTexture::LoadBMPCustom(const char * imagepath)
     glGenTextures(1, &m_uHandleID);
     glBindTexture(GL_TEXTURE_2D, m_uHandleID);
     m_uTarget = GL_TEXTURE_2D;
-    
-    // 自己加载纹理
     
     // Give the image to OpenGL
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_BGR, GL_UNSIGNED_BYTE, data);

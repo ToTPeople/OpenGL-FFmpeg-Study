@@ -9,6 +9,10 @@
 #include "CTextureMgr.hpp"
 #include "CBaseTexture.hpp"
 
+namespace
+{
+#define PIC_FILENAME_LENGTH (128)
+}
 
 CTextureMgr* CTextureMgr::m_pInstance = NULL;
 
@@ -35,6 +39,7 @@ bool CTextureMgr::AddTexture(const std::string& strPath, CBaseTexture* pTexture)
     }
     
     m_mpTexture[strPath] = pTexture;
+    printf("[CTextureMgr::AddTexture] strPath[%s], texture[%p] =======\n", strPath.c_str(), pTexture);
     return true;
 }
 
@@ -49,8 +54,21 @@ CBaseTexture* CTextureMgr::GetTexture(const std::string& strPath)
     return m_mpTexture[strPath];
 }
 
+void CTextureMgr::GenNewVideoPlayPic()
+{
+    ++ m_nVideoPlayPicIndex;
+}
+
+std::string CTextureMgr::GetVideoPlayPic()
+{
+    char strPic[PIC_FILENAME_LENGTH];
+    sprintf(strPic, "%s%d", kszVideoPlayImagePath, m_nVideoPlayPicIndex);
+    return strPic;
+}
+
 
 CTextureMgr::CTextureMgr()
+: m_nVideoPlayPicIndex(0)
 {
     m_mpTexture.clear();
 }

@@ -23,22 +23,6 @@
 #include "CTextureMgr.hpp"
 #include "CShaderMgr.hpp"
 
-// 数据路径
-const char* const kszScreenDataPath = "./screen_data";
-const char* const kszSquareDataPath = "./square_data";
-const char* const kszCubeDataPath = "./cube_data";
-// 着色器路径
-const char* const kszVertexShader = "./vertex_shader";
-const char* const kszFragementShader = "./frag_shader";
-const char* const kszSquareVertexShader = "./square_vertex_shader";
-const char* const kszSquareFragementShader = "./square_frag_shader";
-// 纹理图片路径
-#ifndef TEST_BLEND
-const char* const kszSquareImagePath = "./441H.jpg";//"./uvtemplate.bmp";
-#else
-const char* const kszSquareImagePath = "window.png";//"grass.png";//"./441H.jpg";//"./uvtemplate.bmp";
-#endif
-const char* const kszCubeImagePath = "./uvmap.DDS";
 
 CShapeManager* CShapeManager::m_pInstance = NULL;
 
@@ -56,7 +40,7 @@ CShapeManager::CShapeManager()
 {
 }
 
-CBaseShape* CShapeManager::GenShape(int eShapeType, int eDrawType)
+CBaseShape* CShapeManager::GenShape(int eShapeType, int eDrawType, bool bVideoPlay /* = false */)
 {
     CBaseShape* pShape = GenerateShape(eShapeType);
     if (NULL == pShape)
@@ -68,7 +52,7 @@ CBaseShape* CShapeManager::GenShape(int eShapeType, int eDrawType)
     switch (eDrawType)
     {
         case RENDERER_TYPE_SQUARE:
-            InitShape(pShape, LOAD_TEXTURE_TYPE_BMP, kszSquareDataPath, kszSquareImagePath, kszSquareVertexShader, kszSquareFragementShader);
+            InitShape(pShape, LOAD_TEXTURE_TYPE_BMP, kszSquareDataPath, kszSquareImagePath, kszSquareVertexShader, kszSquareFragementShader, bVideoPlay);
             break;
         case RENDERER_TYPE_CUBE:
             InitShape(pShape, LOAD_TEXTURE_TYPE_DDS, kszCubeDataPath, kszCubeImagePath, kszVertexShader, kszFragementShader);
@@ -155,7 +139,7 @@ CBaseShape* CShapeManager::GenerateShape(int eShapeType)
 }
 
 void CShapeManager::InitShape(CBaseShape* pShape, int eTextureLoadType, const std::string& strDataPath, const std::string& strTexturePath
-                            , const std::string& strVtxShader, const std::string& strFragShader)
+                            , const std::string& strVtxShader, const std::string& strFragShader, bool bVideoPlay /* = false */)
 {
     if (NULL == pShape)
     {
@@ -233,18 +217,19 @@ void CShapeManager::InitShape(CBaseShape* pShape, int eTextureLoadType, const st
         return;
     }
     // 创建/获取 Texture
-    CBaseTexture* pTexture = g_pTextureMgr->GetTexture(strTexturePath);
+    std::string strTexturePic = bVideoPlay ? g_pTextureMgr->GetVideoPlayPic() : strTexturePath;
+    CBaseTexture* pTexture = g_pTextureMgr->GetTexture(strTexturePic);
     if (NULL == pTexture)
     {
         pTexture = new CBaseTexture();
         if (NULL != pTexture)
         {
-            pTexture->SetImagePath(strTexturePath);
+            pTexture->SetImagePath(bVideoPlay ? kszVideoPlayImagePath : strTexturePath);
             pTexture->LoadTexture(eTextureLoadType);
             
-            if (g_pTextureMgr->AddTexture(strTexturePath, pTexture))
+            if (g_pTextureMgr->AddTexture(strTexturePic, pTexture))
             {
-                pShape->SetTexturePath(strTexturePath);
+                pShape->SetTexturePath(strTexturePic);
             }
         }
     }

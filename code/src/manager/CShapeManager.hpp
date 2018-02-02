@@ -20,7 +20,7 @@ class CShapeManager
 public:
     static CShapeManager* GetInstance();
     
-    CBaseShape* GenShape(int eShapeType, int eDrawType);   // 第二个参数需要优化掉
+    CBaseShape* GenShape(int eShapeType, int eDrawType, bool bVideoPlay = false);   // 第二个参数需要优化掉
     
 public:
     void ClearBuffer();
@@ -32,7 +32,7 @@ private:
     
     CBaseShape* GenerateShape(int eShapeType);
     void InitShape(CBaseShape* pShape, int eTextureLoadType, const std::string& strDataPath, const std::string& strTexturePath
-                                , const std::string& strVtxShader, const std::string& strFragShader);
+                                , const std::string& strVtxShader, const std::string& strFragShader, bool bVideoPlay = false);
     
 private:
     static CShapeManager* m_pInstance;

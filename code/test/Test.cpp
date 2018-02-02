@@ -26,9 +26,14 @@
 #include "CShader.hpp"
 #include "CShaderMgr.hpp"
 #include "CBaseFrameBufferObj.hpp"
+#ifdef VIDEO_RUN_TEST
+#include "CBaseVideoPlay.hpp"
+#include "CVideoPlayMgr.hpp"
+#endif
 
 void ShapeInit(CBaseWindows& window);
 void FBOTestInit(CBaseWindows& window);
+void VideoTestInit(CBaseWindows& window);
 
 int OpenGLTest()
 {
@@ -65,6 +70,8 @@ int OpenGLTest()
     ShapeInit(window);
     // FBO初始化
     FBOTestInit(window);
+    // Video初始化
+    VideoTestInit(window);
     
     g_pBufferObj->GenerateBuffer();
     
@@ -147,6 +154,26 @@ void FBOTestInit(CBaseWindows& window)
     }
     
     window.SetUseFrameBufferObj(true);
+#endif
+}
+
+void VideoTestInit(CBaseWindows& window)
+{
+#ifdef VIDEO_RUN_TEST
+    CBaseVideoPlay* pVideoPlay = //new CBaseVideoPlay(VIDEO_OP_TYPE_SAVE_BMP, "./video/trans.h264");
+    new CBaseVideoPlay(VIDEO_OP_TYPE_PLAY
+                       , "./video/ds.h264"
+                       //, "./video/1280_720.mp4"
+                       );
+    if (NULL == pVideoPlay)
+    {
+        return;
+    }
+    
+    pVideoPlay->SetSavePath("/Users/meitu/Learn/github/my/test/");
+    pVideoPlay->SetVideoCbFunc(CBaseWindows::VideoPlayCallBackFunc);
+    g_pVideoPlayMgr->SetBaseVideoPlay(pVideoPlay);
+    window.BindVideoPlay(pVideoPlay);
 #endif
 }
 

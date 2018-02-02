@@ -28,6 +28,9 @@ public:
     
     virtual void LoadTexture(int nLoadType);
     
+    void UpdateTexture(const std::string &strPath);
+    void UpdateTexture(const void * pData, int width, int height, bool bReGenerate = false);
+    
     unsigned int GetHandleID();
     unsigned int GetTarget();       // target目前只用GL_TEXTURE_2D，后续有使用其他再加接口让用户设置
     

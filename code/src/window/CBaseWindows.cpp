@@ -7,6 +7,7 @@
 //
 
 #include "CBaseWindows.hpp"
+#include <unistd.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -23,6 +24,14 @@
 #include "CBaseFrameBufferObj.hpp"
 #include "CShaderMgr.hpp"
 #include "CShader.hpp"
+#include "CBaseVideoPlay.hpp"
+#include "CTextureMgr.hpp"
+#include "CBaseTexture.hpp"
+#include "CFFmpegYUV2H264.hpp"
+#include "CVideoPlayMgr.hpp"
+
+//#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 const int g_iDefaultWindowsWidth = 1024;
 const int g_iDefaultWindowsHeight = 768;
@@ -39,6 +48,9 @@ CBaseWindows::CBaseWindows()
 , m_bUseFrameBufferObj(true)
 , m_pFBO(NULL)
 , m_pTargetShape(NULL)
+, m_pVideoPlay(NULL)
+, m_bEndRecord(false)
+, m_bStartRecord(false)
 {
     m_listShape.clear();
     m_mpShape.clear();
@@ -49,11 +61,37 @@ CBaseWindows::~CBaseWindows()
     ClearShape();
     ReleaseFrameBufferObj();
     ReleaseTargetShape();
+    ReleaseVideoPlay();
     
     if (NULL != m_Windows)
     {
         glfwTerminate();
     }
+}
+
+// 按空格操作：添加方形或视频
+static void DealWithSpace(CBaseWindows* pBaseWin)
+{
+    bool bVideoPlay = false;
+    
+#ifdef VIDEO_ASYNCHRONOUS_TEST
+    bVideoPlay = true;
+    g_pTextureMgr->GenNewVideoPlayPic();
+#endif // endif VIDEO_ASYNCHRONOUS_TEST
+    
+    CBaseShape* pShape = g_pShapeManager->GenShape(SHAPE_TYPE_TRIANGLE, RENDERER_TYPE_SQUARE, bVideoPlay);
+    if (NULL != pShape)
+    {
+        pBaseWin->AddShape(pShape);
+        
+#ifdef VIDEO_ASYNCHRONOUS_TEST
+        if (NULL != g_pVideoPlayMgr->GetBaseVideoPlay())
+        {
+            g_pVideoPlayMgr->GetBaseVideoPlay()->Run(g_pTextureMgr->GetVideoPlayPic());
+        }
+#endif // endif VIDEO_ASYNCHRONOUS_TEST
+    }
+    return;
 }
 
 void CBaseWindows::KeyCallBackFunc(GLFWwindow *pWindow, int nKey, int nScanMode, int nAction, int nMods)
@@ -75,15 +113,29 @@ void CBaseWindows::KeyCallBackFunc(GLFWwindow *pWindow, int nKey, int nScanMode,
     // 临时设置 按空格加图形
     if (GLFW_PRESS == nAction && GLFW_KEY_SPACE == nKey)
     {
-        CBaseShape* pShape = g_pShapeManager->GenShape(SHAPE_TYPE_TRIANGLE, RENDERER_TYPE_SQUARE);
-        if (NULL != pShape)
-        {
-            pBaseWin->AddShape(pShape);
-        }
+        DealWithSpace(pBaseWin);
         return;
     }
-    //
+    // 按esc退出
+    if (GLFW_PRESS == nAction && GLFW_KEY_ESCAPE == nKey)
+    {
+        exit(0);
+        return;
+    }
+    // 截屏保存
+    if (GLFW_PRESS == nAction && GLFW_KEY_S == nKey)
+    {
+        //pBaseWin->ScreenShots();
+        pBaseWin->m_bStartRecord = true;
+        return;
+    }
+    else if (GLFW_PRESS == nAction && GLFW_KEY_E == nKey)
+    {
+        pBaseWin->m_bEndRecord = true;
+        return;
+    }
     
+    // 更新相机位置坐标
     std::list<CBaseShape*>  listShape = pBaseWin->GetShapeList();
     std::list<CBaseShape*>::iterator it = listShape.begin();
     CBaseShape* pShape = NULL;
@@ -200,6 +252,38 @@ void CBaseWindows::MouseCallBackFunc(GLFWwindow *pWindow, int nButton, int nActi
     }
 }
 
+void CBaseWindows::VideoPlayCallBackFunc(const void *pData, int nWidth, int nHeight, bool bFirstCB, const std::string& strTexture)
+{
+    if (NULL == pData)
+    {
+        return;
+    }
+    
+    printf("[CBaseWindows::VideoPlayCallBackFunc] pData[%p], nWidth[%d], nHeight[%d], texture[%s]..\n", pData, nWidth, nHeight, strTexture.c_str());
+    CBaseWindows* pBaseWin = CBaseWindowMgr::GetInstance()->GetBaseWindow();
+    if (NULL == pBaseWin)
+    {
+        printf("[CBaseWindows::VideoPlayCallBackFunc] pBaseWin[%p]\n", pBaseWin);
+        return;
+    }
+    
+    if (0 != glfwWindowShouldClose(pBaseWin->GetWindows()))
+    {
+        exit(0);
+    }
+    // 更新纹理数据
+    CBaseTexture* pTexture = g_pTextureMgr->GetTexture(strTexture);
+    if (NULL == pTexture)
+    {
+        printf("[CBaseWindows::VideoPlayCallBackFunc] error: texture is null.\n");
+        return;
+    }
+    
+    pTexture->UpdateTexture(pData, nWidth, nHeight, bFirstCB);
+    
+    pBaseWin->VideoCallBackShow();
+}
+
 GLFWwindow* CBaseWindows::GetWindows()
 {
     return m_Windows;
@@ -235,6 +319,17 @@ void CBaseWindows::BindTargetShape(CBaseShape *pShape)
 CBaseShape* CBaseWindows::GetTargetShape()
 {
     return m_pTargetShape;
+}
+
+void CBaseWindows::BindVideoPlay(CBaseVideoPlay *pVideoPlay)
+{
+    ReleaseVideoPlay();
+    m_pVideoPlay = pVideoPlay;
+}
+
+CBaseVideoPlay* CBaseWindows::GetVideoPlay()
+{
+    return m_pVideoPlay;
 }
 
 void CBaseWindows::SetUseFrameBufferObj(bool bUseFrameBufferObj)
@@ -329,6 +424,16 @@ void CBaseWindows::SetCurrentContext()
 
 void CBaseWindows::Show()
 {
+#ifdef VIDEO_RUN_TEST
+    return VideoTestShow();
+#endif
+    
+    return NormalTestShow();
+}
+
+void CBaseWindows::VideoCallBackShow()
+{
+#ifdef VIDEO_RUN_TEST
     if (NULL == m_Windows)
     {
         fprintf(stderr, "[CBaseWindows::Show()] m_Windows[%p]\n", m_Windows);
@@ -342,41 +447,62 @@ void CBaseWindows::Show()
     }
 #endif
     
+#ifdef TEST_FBO
     int nWinWidth, nWinHeight;
     glfwGetWindowSize(m_Windows, &nWinWidth, &nWinHeight);
-    // 设置中心
-#ifndef TEST_2D_TRANSLATION
+    m_pFBO->BindFBO(nWinWidth, nWinHeight);
+#endif
+    g_pShapeManager->ClearBuffer();
+    
+    ShowShape();
+        
+#ifdef TEST_FBO
+    m_pFBO->UnBindFBO();
+    
+    g_pShapeManager->ClearBuffer();
+    
+    m_pTargetShape->Renderer();
+#endif
+        
+    glfwSwapBuffers(m_Windows);
     glfwPollEvents();
-    glfwSetCursorPos(m_Windows, nWinWidth / 2.0, nWinHeight / 2.0);
 #endif
     
-    if (OP_TYPE_DRAG == m_eOpType)
+    
+    // tmp
+    if (m_bEndRecord || m_bStartRecord)
     {
-        glfwSetKeyCallback(m_Windows, CBaseWindows::KeyCallBackFunc);
-        glfwSetMouseButtonCallback(m_Windows, CBaseWindows::MouseCallBackFunc);
+        // mac屏幕2倍
+        int nWidth = m_iWinWidth * 2;
+        int nHeight = m_iWinHeight * 2;
+        
+        GLsizei bufSize = nWidth * nHeight * sizeof(GLubyte) * 3;
+        GLubyte* pImgData = (GLubyte*)malloc(bufSize);
+        
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glReadPixels(0, 0, nWidth, nHeight, GL_RGB, GL_UNSIGNED_BYTE, pImgData);
+        
+        g_pFFmpegYUV2H264Instance->Record(pImgData, nWidth, nHeight, m_bEndRecord);
     }
+    // tmp
+}
+
+void CBaseWindows::ScreenShots()
+{
+    // 成像上下颠倒
+    // mac屏幕2倍
+    int nWidth = m_iWinWidth * 2;
+    int nHeight = m_iWinHeight * 2;
     
-    do
-    {
-#ifdef TEST_FBO
-        m_pFBO->BindFBO(nWinWidth, nWinHeight);
-#endif
-        g_pShapeManager->ClearBuffer();
-        
-        ShowShape();
-  
-#ifdef TEST_FBO
-        m_pFBO->UnBindFBO();
-        
-        g_pShapeManager->ClearBuffer();
-        
-        m_pTargetShape->Renderer();
-#endif
-        
-        glfwSwapBuffers(m_Windows);
-        glfwPollEvents();
-    } while (glfwWindowShouldClose(m_Windows) == 0
-             && glfwGetKey(m_Windows, GLFW_KEY_ESCAPE) != GLFW_PRESS);
+    GLsizei bufSize = nWidth * nHeight * sizeof(GLubyte) * 3;
+    GLubyte* pImgData = (GLubyte*)malloc(bufSize);
+    
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    glReadPixels(0, 0, nWidth, nHeight, GL_RGB, GL_UNSIGNED_BYTE, pImgData);
+    
+    stbi_write_png("./bmp/screenshots.png", nWidth, nHeight, 3, pImgData, 0);
+    stbi_write_jpg("./bmp/screen.jpg", nWidth, nHeight, 3, pImgData, 0);
+    //stbi_write_bmp("./bmp/screenshots.bmp", nWidth, nHeight, 3, pImgData);
 }
 
 bool CBaseWindows::IsWindowValid()
@@ -513,4 +639,107 @@ void CBaseWindows::ReleaseTargetShape()
         delete m_pTargetShape;
         m_pTargetShape = NULL;
     }
+}
+
+void CBaseWindows::ReleaseVideoPlay()
+{
+    if (NULL != m_pVideoPlay)
+    {
+        delete m_pVideoPlay;
+        m_pVideoPlay = NULL;
+    }
+}
+
+void CBaseWindows::VideoTestShow()
+{
+    if (NULL == m_Windows)
+    {
+        printf("[CBaseWindows::VideoTestShow()] m_Windows[%p]\n", m_Windows);
+        return;
+    }
+#ifdef TEST_FBO
+    if (NULL == m_pFBO || NULL == m_pTargetShape)
+    {
+        printf("[CBaseWindows::VideoTestShow()] fbo[%p], m_pTargetShape[%p] .\n", m_pFBO, m_pTargetShape);
+        return;
+    }
+#endif
+    
+    int nWinWidth, nWinHeight;
+    glfwGetWindowSize(m_Windows, &nWinWidth, &nWinHeight);
+    // 设置中心
+#ifndef TEST_2D_TRANSLATION
+    glfwPollEvents();
+    glfwSetCursorPos(m_Windows, nWinWidth / 2.0, nWinHeight / 2.0);
+#endif
+    
+    if (OP_TYPE_DRAG == m_eOpType)
+    {
+        glfwSetKeyCallback(m_Windows, CBaseWindows::KeyCallBackFunc);
+        glfwSetMouseButtonCallback(m_Windows, CBaseWindows::MouseCallBackFunc);
+    }
+    
+    if (NULL == m_pVideoPlay)
+    {
+        printf("[CBaseWindows::VideoTestShow()] error: m_pVideoPlay is null.\n");
+        return;
+    }
+    
+    m_pVideoPlay->Run(kszSquareImagePath);
+    //m_pVideoPlay->Play();
+    
+    int aa = 101010;
+    printf("#################### aa = %d $$$$$$$$$$$$$$$$\n\n\n", aa);
+}
+
+void CBaseWindows::NormalTestShow()
+{
+    if (NULL == m_Windows)
+    {
+        fprintf(stderr, "[CBaseWindows::Show()] m_Windows[%p]\n", m_Windows);
+        return;
+    }
+#ifdef TEST_FBO
+    if (NULL == m_pFBO || NULL == m_pTargetShape)
+    {
+        fprintf(stderr, "fbo[%p], m_pTargetShape[%p] .\n", m_pFBO, m_pTargetShape);
+        return;
+    }
+#endif
+    
+    int nWinWidth, nWinHeight;
+    glfwGetWindowSize(m_Windows, &nWinWidth, &nWinHeight);
+    // 设置中心
+#ifndef TEST_2D_TRANSLATION
+    glfwPollEvents();
+    glfwSetCursorPos(m_Windows, nWinWidth / 2.0, nWinHeight / 2.0);
+#endif
+    
+    if (OP_TYPE_DRAG == m_eOpType)
+    {
+        glfwSetKeyCallback(m_Windows, CBaseWindows::KeyCallBackFunc);
+        glfwSetMouseButtonCallback(m_Windows, CBaseWindows::MouseCallBackFunc);
+    }
+    
+    do
+    {
+#ifdef TEST_FBO
+        m_pFBO->BindFBO(nWinWidth, nWinHeight);
+#endif
+        g_pShapeManager->ClearBuffer();
+        
+        ShowShape();
+        
+#ifdef TEST_FBO
+        m_pFBO->UnBindFBO();
+        
+        g_pShapeManager->ClearBuffer();
+        
+        m_pTargetShape->Renderer();
+#endif
+        
+        glfwSwapBuffers(m_Windows);
+        glfwPollEvents();
+    } while (glfwWindowShouldClose(m_Windows) == 0
+             && glfwGetKey(m_Windows, GLFW_KEY_ESCAPE) != GLFW_PRESS);
 }

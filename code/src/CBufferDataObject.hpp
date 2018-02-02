@@ -23,7 +23,7 @@ public:
 public:
     // 添加数据
     void AddData(CDataObject* pData);
-    // 获取数据总娄
+    // 获取数据总数
     int GetVertexTotalCount();
     int GetIndicesTotalCount();
     // 获取buffer data
