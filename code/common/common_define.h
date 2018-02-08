@@ -114,4 +114,6 @@ const char* const kszCubeImagePath = "./uvmap.DDS";
 
 const char* const kszVideoPlayImagePath = "./pic/black.jpg";
 
+const char* const kszSharedFilePath = "./shmfile";
+
 #endif /* common_define_h */

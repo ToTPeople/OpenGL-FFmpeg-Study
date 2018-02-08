@@ -28,7 +28,6 @@
 #include "CBaseFrameBufferObj.hpp"
 #ifdef VIDEO_RUN_TEST
 #include "CBaseVideoPlay.hpp"
-#include "CVideoPlayMgr.hpp"
 #endif
 
 void ShapeInit(CBaseWindows& window);
@@ -172,7 +171,6 @@ void VideoTestInit(CBaseWindows& window)
     
     pVideoPlay->SetSavePath("/Users/meitu/Learn/github/my/test/");
     pVideoPlay->SetVideoCbFunc(CBaseWindows::VideoPlayCallBackFunc);
-    g_pVideoPlayMgr->SetBaseVideoPlay(pVideoPlay);
     window.BindVideoPlay(pVideoPlay);
 #endif
 }

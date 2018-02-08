@@ -29,6 +29,7 @@ struct AVCodecContext;
 struct AVDictionary;
 struct AVCodec;
 struct AVFrame;
+struct SwsContext;
 //
 
 class CFFmpegYUV2H264
@@ -66,7 +67,10 @@ private:
     AVDictionary* param;
     AVCodec* pCodec;
     AVFrame* pFrame;
+    AVFrame *pSrcFrame;
+    SwsContext* pSwsCtx;
     unsigned char* pPicBuf;
+    unsigned char* pRGBBuf;
     AVPacket packet;
     int idx;
     // tmp

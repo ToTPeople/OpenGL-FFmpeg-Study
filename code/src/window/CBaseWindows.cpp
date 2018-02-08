@@ -28,7 +28,6 @@
 #include "CTextureMgr.hpp"
 #include "CBaseTexture.hpp"
 #include "CFFmpegYUV2H264.hpp"
-#include "CVideoPlayMgr.hpp"
 
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
@@ -74,7 +73,20 @@ static void DealWithSpace(CBaseWindows* pBaseWin)
 {
     bool bVideoPlay = false;
     
+    if (NULL == pBaseWin)
+    {
+        printf("[DealWithSpace] error: param invalid. pBaseWin[%p]\n", pBaseWin);
+        return;
+    }
+    
 #ifdef VIDEO_ASYNCHRONOUS_TEST
+    if (NULL != pBaseWin->GetVideoPlay()
+        && pBaseWin->GetVideoPlay()->GetCreateThreadCnt() >= CBaseVideoPlay::THREAD_MAX_COUNT)
+    {
+        printf("[DealWithSpace] warning: max thread limit is %d, can't create.\n", CBaseVideoPlay::THREAD_MAX_COUNT);
+        return;
+    }
+    
     bVideoPlay = true;
     g_pTextureMgr->GenNewVideoPlayPic();
 #endif // endif VIDEO_ASYNCHRONOUS_TEST
@@ -85,9 +97,9 @@ static void DealWithSpace(CBaseWindows* pBaseWin)
         pBaseWin->AddShape(pShape);
         
 #ifdef VIDEO_ASYNCHRONOUS_TEST
-        if (NULL != g_pVideoPlayMgr->GetBaseVideoPlay())
+        if (NULL != pBaseWin->GetVideoPlay())
         {
-            g_pVideoPlayMgr->GetBaseVideoPlay()->Run(g_pTextureMgr->GetVideoPlayPic());
+            pBaseWin->GetVideoPlay()->Run(g_pTextureMgr->GetVideoPlayPic());
         }
 #endif // endif VIDEO_ASYNCHRONOUS_TEST
     }
@@ -127,6 +139,7 @@ void CBaseWindows::KeyCallBackFunc(GLFWwindow *pWindow, int nKey, int nScanMode,
     {
         //pBaseWin->ScreenShots();
         pBaseWin->m_bStartRecord = true;
+        pBaseWin->m_bEndRecord = false;
         return;
     }
     else if (GLFW_PRESS == nAction && GLFW_KEY_E == nKey)
@@ -252,36 +265,50 @@ void CBaseWindows::MouseCallBackFunc(GLFWwindow *pWindow, int nButton, int nActi
     }
 }
 
-void CBaseWindows::VideoPlayCallBackFunc(const void *pData, int nWidth, int nHeight, bool bFirstCB, const std::string& strTexture)
+void CBaseWindows::VideoPlayCallBackFunc(void *pData[], int *width, int *height, bool *firstCB, const std::string* strTexture)
 {
-    if (NULL == pData)
+    if (NULL == pData || NULL == width || NULL == height || NULL == firstCB || NULL == strTexture)
     {
+        printf("[CBaseWindows::VideoPlayCallBackFunc] warning: param invalid. pData[%p], width[%p], height[%p], firstCB[%p], strTexture[%p]\n", pData, width, height, firstCB, strTexture);
         return;
     }
     
-    printf("[CBaseWindows::VideoPlayCallBackFunc] pData[%p], nWidth[%d], nHeight[%d], texture[%s]..\n", pData, nWidth, nHeight, strTexture.c_str());
     CBaseWindows* pBaseWin = CBaseWindowMgr::GetInstance()->GetBaseWindow();
     if (NULL == pBaseWin)
     {
         printf("[CBaseWindows::VideoPlayCallBackFunc] pBaseWin[%p]\n", pBaseWin);
         return;
     }
-    
+    // 按窗口X关闭窗口
     if (0 != glfwWindowShouldClose(pBaseWin->GetWindows()))
     {
         exit(0);
     }
+    
     // 更新纹理数据
-    CBaseTexture* pTexture = g_pTextureMgr->GetTexture(strTexture);
-    if (NULL == pTexture)
+    bool bNeedFresh = false;
+    int cnt = CBaseVideoPlay::THREAD_MAX_COUNT;
+    for (int i = 0; i < cnt; ++i)
     {
-        printf("[CBaseWindows::VideoPlayCallBackFunc] error: texture is null.\n");
-        return;
+        if (NULL == pData[i])
+        {
+            continue;
+        }
+        bNeedFresh = true;
+        
+        CBaseTexture* pTexture = g_pTextureMgr->GetTexture(strTexture[i]);
+        if (NULL == pTexture)
+        {
+            printf("[CBaseWindows::VideoPlayCallBackFunc] error: texture[%s] is null.\n", strTexture[i].c_str());
+            return;
+        }
+        pTexture->UpdateTexture(pData[i], width[i], height[i], firstCB[i]);
     }
-    
-    pTexture->UpdateTexture(pData, nWidth, nHeight, bFirstCB);
-    
-    pBaseWin->VideoCallBackShow();
+    // 更新窗口显示
+    if (bNeedFresh)
+    {
+        pBaseWin->VideoCallBackShow();
+    }
 }
 
 GLFWwindow* CBaseWindows::GetWindows()
@@ -470,7 +497,7 @@ void CBaseWindows::VideoCallBackShow()
     
     
     // tmp
-    if (m_bEndRecord || m_bStartRecord)
+    if (m_bStartRecord)
     {
         // mac屏幕2倍
         int nWidth = m_iWinWidth * 2;
@@ -482,7 +509,15 @@ void CBaseWindows::VideoCallBackShow()
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
         glReadPixels(0, 0, nWidth, nHeight, GL_RGB, GL_UNSIGNED_BYTE, pImgData);
         
-        g_pFFmpegYUV2H264Instance->Record(pImgData, nWidth, nHeight, m_bEndRecord);
+        
+        //g_pFFmpegYUV2H264Instance->Record(pImgData, nWidth, nHeight, m_bEndRecord);
+        m_pVideoPlay->Record(pImgData, nWidth, nHeight, m_bEndRecord);
+        if (m_bEndRecord)
+        {
+            m_bEndRecord = false;
+            m_bStartRecord = false;
+        }
+        free(pImgData);
     }
     // tmp
 }
@@ -499,6 +534,9 @@ void CBaseWindows::ScreenShots()
     
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     glReadPixels(0, 0, nWidth, nHeight, GL_RGB, GL_UNSIGNED_BYTE, pImgData);
+    
+    //反转图像 ，否则生成的图像是上下调到的
+    SetUpDown(pImgData, nWidth, nHeight);
     
     stbi_write_png("./bmp/screenshots.png", nWidth, nHeight, 3, pImgData, 0);
     stbi_write_jpg("./bmp/screen.jpg", nWidth, nHeight, 3, pImgData, 0);
@@ -686,7 +724,6 @@ void CBaseWindows::VideoTestShow()
     }
     
     m_pVideoPlay->Run(kszSquareImagePath);
-    //m_pVideoPlay->Play();
     
     int aa = 101010;
     printf("#################### aa = %d $$$$$$$$$$$$$$$$\n\n\n", aa);
@@ -742,4 +779,26 @@ void CBaseWindows::NormalTestShow()
         glfwPollEvents();
     } while (glfwWindowShouldClose(m_Windows) == 0
              && glfwGetKey(m_Windows, GLFW_KEY_ESCAPE) != GLFW_PRESS);
+}
+
+void CBaseWindows::SetUpDown(unsigned char *pData, int image_width, int image_height)
+{
+    int index = 3;
+    for (int h = 0; h < image_height/2; ++h)
+    {
+        for (int w = 0; w < image_width; ++w)
+        {
+            const int iCoordM = index * (h * image_width + w);
+            const int iCoordN = index * ((image_height - h -1) * image_width + w);
+            unsigned char Tmp = pData[iCoordM];
+            pData[iCoordM] = pData[iCoordN];
+            pData[iCoordN] = Tmp;
+            Tmp = pData[iCoordM+1];
+            pData[iCoordM + 1] = pData[iCoordN + 1];
+            pData[iCoordN + 1] = Tmp;
+            Tmp = pData[iCoordM + 2];
+            pData[iCoordM + 2] = pData[iCoordN + 2];
+            pData[iCoordN + 2] = Tmp;
+        }
+    }
 }

@@ -296,7 +296,9 @@ int CFFmpegYUV2H264::flush_encoder(AVFormatContext *fmt_ctx, unsigned int stream
     int ret, got_frame;
     AVPacket enc_pkt;
     
-    if (!(fmt_ctx->streams[stream_index]->codec->codec->capabilities & CODEC_CAP_DELAY))
+    if (NULL == fmt_ctx->streams || NULL == *(fmt_ctx->streams)
+        || NULL == fmt_ctx->streams[stream_index]
+        || !(fmt_ctx->streams[stream_index]->codec->codec->capabilities & CODEC_CAP_DELAY))
     {
         return 0;
     }
@@ -347,27 +349,39 @@ void CFFmpegYUV2H264::Record(uint8_t* pImgData, int nWidth, int nHeight, bool bE
         return;
     }
     
-    //pFrame->buf = pImgData;
-    pFrame->data[0] = pImgData;
-    
-    // 设置 yuv 数据中 y 图的宽高
-    //int y_size = pCodecCtx->width * pCodecCtx->height;
-    //for (int i = 0; i < framenum; ++i)
+    AVFrame *pSrcFrame = av_frame_alloc();
+    if (NULL == pSrcFrame)
     {
-        /*
-        if (fread(pPicBuf, 1, y_size*3/2, in_file) <= 0)
-        {
-            printf("[CFFmpegYUV2H264::Record] error: fread failed.\n");
-            exit(1);
-        }
-        
-        pFrame->data[0] = pPicBuf;              // Y
-        pFrame->data[1] = pPicBuf + y_size;     // U
-        pFrame->data[2] = pPicBuf + y_size*5/4; // V
-        */
+        printf("[CFFmpegYUV2H264::Record] error: av_frame_alloc failed.\n");
+        exit(1);
+    }
+    
+    // 通过像素格式(这里为 YUV)获取图片的真实大小，例如将 480 * 272 转换成 int 类型
+    int nRGBSize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height, 1);
+    // 将 picture_size 转换成字节数据，byte
+    unsigned char* pRGBBuf = (uint8_t*)av_malloc(nRGBSize);
+    pRGBBuf = pImgData;
+    // 设置原始数据 AVFrame 的每一个frame 的图片大小，AVFrame 这里存储着 YUV 非压缩数据
+    av_image_fill_arrays(pSrcFrame->data, pSrcFrame->linesize, pRGBBuf, AV_PIX_FMT_RGB24, nWidth, nHeight, 1);
+    
+    SwsContext* pSwsCtx = sws_getContext(nWidth, nHeight, AV_PIX_FMT_RGB24, nWidth, nHeight, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
+    
+    //pSrcFrame
+    // 翻转RGB图像
+    pSrcFrame->data[0]  += pSrcFrame->linesize[0] * (nHeight - 1);
+    pSrcFrame->linesize[0] *= -1;
+    pSrcFrame->data[1]  += pSrcFrame->linesize[1] * (nHeight / 2 - 1);
+    pSrcFrame->linesize[1] *= -1;
+    pSrcFrame->data[2]  += pSrcFrame->linesize[2] * (nHeight / 2 - 1);
+    pSrcFrame->linesize[2] *= -1;
+    
+    sws_scale(pSwsCtx, pSrcFrame->data, pSrcFrame->linesize, 0, nHeight, pFrame->data, pFrame->linesize);
+    
+    {
         // PTS
         // 设置这一帧的显示时间
         pFrame->pts = idx * (video_st->time_base.den) / ((video_st->time_base.num) * 25);
+        //pFrame->pts = idx * (pCodecCtx->time_base.den) / (pCodecCtx->time_base.num * 25);
         int got_pic = 0;
 
         // 利用编码器进行编码，将 pFrame 编码后的数据传入 pkt 中
@@ -419,6 +433,8 @@ void CFFmpegYUV2H264::End()
     avio_close(pFormatCtx->pb);
     // 释放 AVFromatContext 结构体
     avformat_free_context(pFormatCtx);
+    
+    m_bInit = false;
 }
 
 void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, int nHeight)
@@ -430,6 +446,7 @@ void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, 
     
     if (!m_bInit)
     {
+        m_bInit = true;
         // 注册 ffmpeg 中的所有的封装、解封装 和 协议等，当然，你也可用以下两个函数代替
         av_register_all();
         
@@ -437,18 +454,23 @@ void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, 
         pFormatCtx = avformat_alloc_context();
         if (NULL == pFormatCtx)
         {
-            printf("[CFFmpegYUV2H264::Record] error: avformat_alloc_context failed.\n");
+            printf("[CFFmpegYUV2H264::Init] error: avformat_alloc_context failed.\n");
             exit(1);
         }
         
         // 通过这个函数可以获取输出文件的编码格式, 那么这里我们的 fmt 为 h264 格式(AVOutputFormat *)
+#if 0
+        fmt = av_guess_format(NULL, out_file, NULL);
+        pFormatCtx->oformat = fmt;
+#else
         avformat_alloc_output_context2(&pFormatCtx, NULL, NULL, out_file);
         fmt = pFormatCtx->oformat;
+#endif
         
         // 打开文件的缓冲区输入输出，flags 标识为  AVIO_FLAG_READ_WRITE ，可读写
         if (avio_open(&pFormatCtx->pb, out_file, AVIO_FLAG_READ_WRITE) < 0)
         {
-            printf("[CFFmpegYUV2H264::Record] error: avio_open failed.\n");
+            printf("[CFFmpegYUV2H264::Init] error: avio_open failed.\n");
             exit(1);
         }
         
@@ -456,18 +478,21 @@ void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, 
         video_st = avformat_new_stream(pFormatCtx, 0);
         if (NULL == video_st)
         {
-            printf("[CFFmpegYUV2H264::Record] error: avformat_new_stream failed.\n");
+            printf("[CFFmpegYUV2H264::Init] error: avformat_new_stream failed.\n");
             exit(1);
         }
+        
+        video_st->time_base.den = 25;
+        video_st->time_base.num = 1;
         
         // 从媒体流中获取到编码结构体，他们是一一对应的关系，一个 AVStream 对应一个  AVCodecContext
         pCodecCtx = video_st->codec;
         // 设置编码器的 id，每一个编码器都对应着自己的 id，例如 h264 的编码 id 就是 AV_CODEC_ID_H264
         pCodecCtx->codec_id = fmt->video_codec;
         // 设置编码类型为 视频编码
-        pCodecCtx->codec_type = AVMEDIA_TYPE_DATA;//AVMEDIA_TYPE_VIDEO;
+        pCodecCtx->codec_type = AVMEDIA_TYPE_VIDEO;
         // 设置像素格式为 yuv 格式
-        pCodecCtx->pix_fmt = AV_PIX_FMT_RGB24;//AV_PIX_FMT_YUV420P;//AV_PIX_FMT_RGB24;
+        pCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P;
         // 设置视频的宽高
         pCodecCtx->width = nWidth;
         pCodecCtx->height = nHeight;
@@ -508,35 +533,60 @@ void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, 
         }
         
         // 数据信息
+        printf("==========================================\n");
         av_dump_format(pFormatCtx, 0, out_file, 1);
+        printf("==========================================\n");
         
         // 通过 codec_id 找到对应的编码器
         pCodec = avcodec_find_encoder(pCodecCtx->codec_id);
         if (NULL == pCodec)
         {
-            printf("[CFFmpegYUV2H264::Record] error: avcodec_find_encoder failed.\n");
+            printf("[CFFmpegYUV2H264::Init] error: avcodec_find_encoder failed.\n");
             exit(1);
         }
         // 打开编码器，并设置参数 param
         if (avcodec_open2(pCodecCtx, pCodec, &param) < 0)
         {
-            printf("[CFFmpegYUV2H264::Record] error: avcodec_open2 failed.\n");
+            printf("[CFFmpegYUV2H264::Init] error: avcodec_open2 failed.\n");
             exit(1);
         }
         
-        pFrame = av_frame_alloc();
-        if (NULL == pFrame)
+        // 目标frame
+        int nPicSize = 0;
         {
-            printf("[CFFmpegYUV2H264::Record] error: av_frame_alloc failed.\n");
-            exit(1);
+            pFrame = av_frame_alloc();
+            if (NULL == pFrame)
+            {
+                printf("[CFFmpegYUV2H264::Init] error: av_frame_alloc failed.\n");
+                exit(1);
+            }
+            
+            // 通过像素格式(这里为 YUV)获取图片的真实大小，例如将 480 * 272 转换成 int 类型
+            nPicSize = av_image_get_buffer_size(pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, 1);
+            // 将 picture_size 转换成字节数据，byte
+            pPicBuf = (uint8_t*)av_malloc(nPicSize);
+            // 设置原始数据 AVFrame 的每一个frame 的图片大小，AVFrame 这里存储着 YUV 非压缩数据
+            av_image_fill_arrays(pFrame->data, pFrame->linesize, pPicBuf, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, 1);
         }
-        
-        // 通过像素格式(这里为 YUV)获取图片的真实大小，例如将 480 * 272 转换成 int 类型
-        int nPicSize = av_image_get_buffer_size(pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, 1);
-        // 将 picture_size 转换成字节数据，byte
-        pPicBuf = (uint8_t*)av_malloc(nPicSize);
-        // 设置原始数据 AVFrame 的每一个frame 的图片大小，AVFrame 这里存储着 YUV 非压缩数据
-        av_image_fill_arrays(pFrame->data, pFrame->linesize, pPicBuf, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, 1);
+        // 源frame
+        /*{
+            pSrcFrame = av_frame_alloc();
+            if (NULL == pSrcFrame)
+            {
+                printf("[CFFmpegYUV2H264::Record] error: av_frame_alloc failed.\n");
+                exit(1);
+            }
+            
+            // 通过像素格式(这里为 YUV)获取图片的真实大小，例如将 480 * 272 转换成 int 类型
+            int nRGBSize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height, 1);
+            // 将 picture_size 转换成字节数据，byte
+            pRGBBuf = (uint8_t*)av_malloc(nRGBSize);
+            pRGBBuf = pImgData;
+            // 设置原始数据 AVFrame 的每一个frame 的图片大小，AVFrame 这里存储着 YUV 非压缩数据
+            av_image_fill_arrays(pSrcFrame->data, pSrcFrame->linesize, pRGBBuf, AV_PIX_FMT_RGB24, nWidth, nHeight, 1);
+            
+            pSwsCtx = sws_getContext(nWidth, nHeight, AV_PIX_FMT_RGB24, nWidth, nHeight, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
+        }*/
         
         
         // 编写 h264 封装格式的文件头部，基本上每种编码都有着自己的格式的头部，想看具体实现的同学可以看看 h264 的具体实现
@@ -544,10 +594,8 @@ void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, 
         
         if (0 != av_new_packet(&packet, nPicSize))
         {
-            printf("[CFFmpegYUV2H264::Record] error: av_new_packet failed.\n");
+            printf("[CFFmpegYUV2H264::Init] error: av_new_packet failed.\n");
             exit(1);
         }
     }
-    
-    m_bInit = true;
 }
