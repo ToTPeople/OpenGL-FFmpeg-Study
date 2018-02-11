@@ -161,8 +161,11 @@ void VideoTestInit(CBaseWindows& window)
 #ifdef VIDEO_RUN_TEST
     CBaseVideoPlay* pVideoPlay = //new CBaseVideoPlay(VIDEO_OP_TYPE_SAVE_BMP, "./video/trans.h264");
     new CBaseVideoPlay(VIDEO_OP_TYPE_PLAY
-                       , "./video/ds.h264"
-                       //, "./video/1280_720.mp4"
+                       //, "./video/ds.h264"
+                       , "./video/1280_720.mp4"
+                       //, "./video/1920X1080.mp4"
+                       //, "./video/100.mp4"
+                       //, "./video/[阳光电影www.ygdy8.net].王牌特工2：黄金圈.HD.720p.中英双字幕.rmvb"
                        );
     if (NULL == pVideoPlay)
     {

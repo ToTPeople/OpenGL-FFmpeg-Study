@@ -27,9 +27,10 @@ public:
     enum
     {
         THREAD_MAX_COUNT = 5,                   // 子线程个数
-        SHARED_DATA_QUEUE_COUNT = 10,//100,     // 共享内存各个线程数据保存个数
+        SHARED_DATA_QUEUE_COUNT = 10,           // 视频解析共享内存各个线程数据保存个数
+        COMPRESS_SHARED_DATA_QUEUE_CAP = 30,    // 压缩共享内存数据队列保存个数
     };
-    // 共享内存数据结构
+    // 视频解析共享内存数据结构
     struct SharedData_s
     {
         int nWidth[THREAD_MAX_COUNT];                                   // decode image width
@@ -38,6 +39,18 @@ public:
         int back[THREAD_MAX_COUNT];                                     // the tail of queue
         bool bFirstCB[THREAD_MAX_COUNT][SHARED_DATA_QUEUE_COUNT];       // is the first decode data
         void* pData[THREAD_MAX_COUNT][SHARED_DATA_QUEUE_COUNT];         // decode data
+    };
+    // 截屏压缩共享内存数据结构
+    struct CompressSharedData_s
+    {
+        int width;                                                      // image width
+        int height;                                                     // image height
+        bool is_end;                                                    // is last image to compress
+        bool is_first;                                                  // is first image to compress
+        int head;                                                       // the header location of queue
+        int tail;                                                       // the tail location to queue
+        int idx;                                                        // index
+        uint8_t *img_data[COMPRESS_SHARED_DATA_QUEUE_CAP];              // the image rgb data
     };
     
 public:
@@ -68,7 +81,7 @@ protected:
     // 启动子线程解析视频数据
     static void Play(const char* filename, int* cur_thread_cnt, int thread_idx);
     //
-    static void CompressRGB(uint8_t *pImgData, int nWidth, int nHeight, bool bEnd, bool bFirst, int idx);
+    static void CompressRGB();
     
 private:
     int             m_eOpType;
@@ -76,15 +89,20 @@ private:
     std::string     m_strSavePath;      // 保存图片时：保存的路径；
     FuncVideoCB     m_pFuncVideoCB;     // 回调函数
     bool            m_bInit;            // 视频编、解码是否初始化
+    // 子线程解析视频相关 start
     int             m_nThreadCnt;       // 已创建的子线程个数
     int             m_nCurThreadCnt;    // 当前运行中的线程个数
-    int             idx;                // RGB视频压缩第N个
-    // 子线程解析视频相关 start
-    int             m_shmid;            // 共享内存文件描述符
+    int             m_shmid;            // 解析共享内存文件描述符
     std::string     m_strTexture[THREAD_MAX_COUNT];     // 线程解析后数据绘制的目标纹理
     struct stat     m_statBuf;          // 文件状态相关信息
     SharedData_s    *m_pSharedData;     // 共享内存映射后起始地址
     // 子线程解析视频相关 end
+    // 子线程压缩相关 start
+    bool            m_is_recording;
+    int             idx;                // 第几段RGB图片进行视频压缩
+    int             m_compress_shmid;   // 压缩共享内存文件描述符
+    CompressSharedData_s    *m_pCompressSharedData;
+    // 子线程压缩相关 end
 };
 
 #endif /* CBaseVideoPlay_hpp */

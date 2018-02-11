@@ -40,6 +40,8 @@ namespace
     const int g_nSendDataSleepTime = 30 * 1000;// 单位：微秒 发数据刷新界面频率
     const int g_nMaxImageWidth = 2048;
     const int g_nMaxImageHeight = 1536;
+    
+//#define DECODE_LOG
 }
 
 CBaseVideoPlay::CBaseVideoPlay(int eOpType, const std::string& strVideoPath)
@@ -53,6 +55,7 @@ CBaseVideoPlay::CBaseVideoPlay(int eOpType, const std::string& strVideoPath)
 , idx(0)
 , m_shmid(-1)
 , m_pSharedData(NULL)
+, m_pCompressSharedData(NULL)
 {
 }
 
@@ -74,7 +77,9 @@ static void AddData2Queue(CBaseVideoPlay::SharedData_s *pShareData, uint8_t* pRG
     if (back+1 == pShareData->pre[thread_idx]
         || (back+1 == thread_max && 0 == pShareData->pre[thread_idx]))
     {
+#ifdef DECODE_LOG
         printf("[CBaseVideoPlay::Play] info: queue is full, waiting...\n");
+#endif
         g_pThreadProductConsumerHelper->BufferFullWait();
     }
     
@@ -98,7 +103,9 @@ static void AddData2Queue(CBaseVideoPlay::SharedData_s *pShareData, uint8_t* pRG
     // 解析这个数据前，队列是否为空，为空则发消息队列不为空消息出来
     if (pShareData->pre[thread_idx] == back)
     {
+#ifdef DECODE_LOG
         printf("[CBaseVideoPlay::Play] info: queue not empty signal.\n");
+#endif
         g_pThreadProductConsumerHelper->BufferNotEmptySignal();
     }
     g_pThreadProductConsumerHelper->BufferUnlock();
@@ -342,12 +349,89 @@ void CBaseVideoPlay::Record(uint8_t *pImgData, int nWidth, int nHeight, bool bEn
         avformat_network_init();
     }
     
-    std::thread t(CompressRGB, pImgData, nWidth, nHeight, bEnd, (0 == idx), idx);
+    bool is_first = !m_is_recording;
+    if (!m_is_recording)
+    {
+        m_is_recording = true;
+        ++idx;
+        // 打开共享内存
+        int shmid = open(kszCompressionSharedFilePath, O_CREAT | O_RDWR, 0666);
+        if (-1 == shmid)
+        {
+            printf("[CBaseVideoPlay::Record] error: shm_open failed.\n");
+            exit(1);
+        }
+        __int64_t img_total_size = g_nMaxImageWidth * g_nMaxImageHeight * COMPRESS_SHARED_DATA_QUEUE_CAP * sizeof(uint8_t);
+        if (-1 == ftruncate(shmid, img_total_size + sizeof(CompressSharedData_s)))
+        {
+            printf("[CBaseVideoPlay::Record] error: ftruncate failed, errno[%d].\n", errno);
+            exit(1);
+        }
+        struct stat buf_stat;
+        if (-1 == fstat(shmid, &buf_stat))
+        {
+            printf("[CBaseVideoPlay::Record] error: fstat fstat.\n");
+            exit(1);
+        }
+        printf("[CBaseVideoPlay::Record] info: size=%lld mode=%o.\n", buf_stat.st_size, buf_stat.st_mode & 0777);
+        m_pCompressSharedData = (CompressSharedData_s*)mmap(NULL, buf_stat.st_size, PROT_WRITE, MAP_SHARED, shmid, 0);
+        if (MAP_FAILED == m_pCompressSharedData)
+        {
+            printf("[CBaseVideoPlay::Record] error: mmap failed.\n");
+            exit(1);
+        }
+        memset(m_pCompressSharedData, 0, buf_stat.st_size);
+        
+        std::thread t(CompressRGB);
+        t.detach();
+    }
     
+    // 设置共享内存数据
+    if (MAP_FAILED != m_pCompressSharedData && NULL != m_pCompressSharedData)
+    {
+        g_pThreadProductConsumerHelper->CompressBufferLock();
+        int tail = m_pCompressSharedData->tail;
+        // if shared memory data queue is full, waiting
+        if (tail + 1 == m_pCompressSharedData->head
+            || (tail + 1 == COMPRESS_SHARED_DATA_QUEUE_CAP && 0 == m_pCompressSharedData->head))
+        {
+            printf("[CBaseVideoPlay::Record] info: data queue is full, wait...\n");
+            g_pThreadProductConsumerHelper->CompressBufferFullWait();
+        }
+        // set shared memory data
+        int nRGBSize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, nWidth, nHeight, 1);
+        m_pCompressSharedData->img_data[tail] = (uint8_t*)malloc(nRGBSize);
+        if (NULL == m_pCompressSharedData->img_data[tail])
+        {
+            printf("[CBaseVideoPlay::Record] error: malloc memory failed.\n");
+            g_pThreadProductConsumerHelper->CompressBufferUnlock();
+            return;
+        }
+        memcpy(m_pCompressSharedData->img_data[tail], pImgData, nRGBSize);
+        m_pCompressSharedData->width = nWidth;
+        m_pCompressSharedData->height = nHeight;
+        m_pCompressSharedData->is_end = bEnd;
+        m_pCompressSharedData->is_first = is_first;
+        m_pCompressSharedData->idx = idx;
+        
+        ++m_pCompressSharedData->tail;
+        if (m_pCompressSharedData->tail >= COMPRESS_SHARED_DATA_QUEUE_CAP)
+        {
+            m_pCompressSharedData->tail = 0;
+        }
+        // signal now is not empty
+        if (tail == m_pCompressSharedData->head)
+        {
+            printf("[CBaseVideoPlay::Record] info: data queue is not empty now.\n");
+            g_pThreadProductConsumerHelper->CompressBufferNotEmptySignal();
+        }
+        g_pThreadProductConsumerHelper->CompressBufferUnlock();
+    }
     
-    t.detach();
-    
-    idx = bEnd ? 0 : (idx + 1);
+    if (bEnd)
+    {
+        m_is_recording = false;
+    }
 }
 
 void CBaseVideoPlay::SetSavePath(const std::string& strSavePath)
@@ -451,7 +535,9 @@ bool CBaseVideoPlay::SendData()
             {
                 return false;
             }
+#ifdef DECODE_LOG
             printf("[CBaseVideoPlay::SendData] info: queue is empty, waiting.\n");
+#endif
             g_pThreadProductConsumerHelper->BufferEmptyWait();
             bHasData = true;
         }
@@ -483,7 +569,9 @@ bool CBaseVideoPlay::SendData()
         
         if (bPreFull)
         {
+#ifdef DECODE_LOG
             printf("[CBaseVideoPlay::SendData] info: queue not full signal.\n");
+#endif
             g_pThreadProductConsumerHelper->BufferNotFullSignal();
         }
         
@@ -563,18 +651,56 @@ static int flush_encoder(AVFormatContext *fmt_ctx, unsigned int stream_index)
     return ret;
 }
 
-void CBaseVideoPlay::CompressRGB(uint8_t *pImgData, int nWidth, int nHeight, bool bEnd, bool bFirst, int idx)
+CBaseVideoPlay::CompressSharedData_s *GetSharedMemory()
+{
+    int shmid = open(kszCompressionSharedFilePath, O_CREAT | O_RDWR, 0666);
+    if (-1 == shmid)
+    {
+        printf("[CBaseVideoPlay::CompressRGB] error: shm_open failed.\n");
+        exit(1);
+    }
+    struct stat buf_stat;
+    if (-1 == fstat(shmid, &buf_stat))
+    {
+        printf("[CBaseVideoPlay::CompressRGB] error: fstat fstat.\n");
+        exit(1);
+    }
+    printf("[CBaseVideoPlay::CompressRGB] info: size=%lld mode=%o.\n", buf_stat.st_size, buf_stat.st_mode & 0777);
+    CBaseVideoPlay::CompressSharedData_s *pSharedData = (CBaseVideoPlay::CompressSharedData_s*)mmap(NULL, buf_stat.st_size, PROT_WRITE, MAP_SHARED, shmid, 0);
+    if (MAP_FAILED == pSharedData)
+    {
+        printf("[CBaseVideoPlay::CompressRGB] error: mmap failed.\n");
+        exit(1);
+    }
+    
+    g_pThreadProductConsumerHelper->CompressBufferLock();
+    // if queue is empty, waiting
+    if (pSharedData->head == pSharedData->tail)
+    {
+        printf("[CBaseVideoPlay::CompressRGB] info: data queue is empty.\n");
+        g_pThreadProductConsumerHelper->CompressBufferEmptyWait();
+    }
+    g_pThreadProductConsumerHelper->CompressBufferUnlock();
+    
+    return pSharedData;
+}
+
+void CBaseVideoPlay::CompressRGB()
 {
     bool is_error = false;
     
     do
     {
-        if (NULL == pImgData)
+        // 共享内存
+        CompressSharedData_s *pSharedData = GetSharedMemory();
+        if (NULL == pSharedData)
         {
-            is_error = true;
-            break;
+            printf("[] error: Get shared memory failed.\n");
+            exit(1);
         }
-        const char* out_file = "./video/screenst.h264";
+        
+        char out_file[g_default_file_path_length];
+        sprintf(out_file, "./video/screenst%d%s", pSharedData->idx, ".h264");
         
         // 用作之后写入视频帧并编码成 h264，贯穿整个工程当中
         AVFormatContext* pFormatCtx;
@@ -623,12 +749,12 @@ void CBaseVideoPlay::CompressRGB(uint8_t *pImgData, int nWidth, int nHeight, boo
         // 设置像素格式为 yuv 格式
         pCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P;
         // 设置视频的宽高
-        pCodecCtx->width = nWidth;
-        pCodecCtx->height = nHeight;
+        pCodecCtx->width = pSharedData->width;
+        pCodecCtx->height = pSharedData->height;
         
         // 设置比特率，每秒传输多少比特数 bit，比特率越高，传送速度越快，也可以称作码率，
         // 视频中的比特是指由模拟信号转换为数字信号后，单位时间内的二进制数据量。
-        pCodecCtx->bit_rate = 4000;//400000;
+        pCodecCtx->bit_rate = 400000;
         // 设置图像组层的大小。
         // 图像组层是在 MPEG 编码器中存在的概念，图像组包 若干幅图像, 组头包 起始码、GOP 标志等,如视频磁带记录器时间、控制码、B 帧处理码等;
         pCodecCtx->gop_size = 250;
@@ -648,8 +774,7 @@ void CBaseVideoPlay::CompressRGB(uint8_t *pImgData, int nWidth, int nHeight, boo
         if (AV_CODEC_ID_H264 == pCodecCtx->codec_id)
         {
             // 通过--preset的参数调节编码速度和质量的平衡。
-            //av_dict_set(&param, "preset", "slow", 0);
-            av_dict_set(&param, "preset", "fast", 0);
+            av_dict_set(&param, "preset", "slow", 0);
             // 通过--tune的参数值指定片子的类型，是和视觉优化的参数，或有特别的情况。
             // zerolatency: 零延迟，用在需要非常低的延迟的情况下，比如电视电话会议的编码
             av_dict_set(&param, "tune", "zerolatency", 0);
@@ -657,6 +782,7 @@ void CBaseVideoPlay::CompressRGB(uint8_t *pImgData, int nWidth, int nHeight, boo
         
         
         avcodec_parameters_from_context(video_st->codecpar, pCodecCtx);
+        // 通过 codec_id 找到对应的编码器
         AVCodec* pCodec;
         pCodec = avcodec_find_encoder(pCodecCtx->codec_id);
         if (NULL == pCodec)
@@ -675,9 +801,6 @@ void CBaseVideoPlay::CompressRGB(uint8_t *pImgData, int nWidth, int nHeight, boo
         }
         // 数据信息
         av_dump_format(pFormatCtx, 0, out_file, 1);
-   
-        // 通过 codec_id 找到对应的编码器
-
         
         // 目标frame
         AVFrame* pFrame;
@@ -688,153 +811,26 @@ void CBaseVideoPlay::CompressRGB(uint8_t *pImgData, int nWidth, int nHeight, boo
             is_error = true;
             break;
         }
-        // 通过像素格式(这里为 YUV)获取图片的真实大小，例如将 480 * 272 转换成 int 类型
-        int nPicSize = av_image_get_buffer_size(pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, 1);
-        // 将 picture_size 转换成字节数据，byte
-        unsigned char* pPicBuf = (uint8_t*)av_malloc(nPicSize);
-        // 设置原始数据 AVFrame 的每一个frame 的图片大小，AVFrame 这里存储着 YUV 非压缩数据
-        av_image_fill_arrays(pFrame->data, pFrame->linesize, pPicBuf, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, 1);
         
-        if (bFirst)
+        // compress and record data
+        if (pSharedData->is_first)
         {
             // 编写 h264 封装格式的文件头部，基本上每种编码都有着自己的格式的头部，想看具体实现的同学可以看看 h264 的具体实现
             avformat_write_header(pFormatCtx, NULL);
-            bEnd = false;
         }
         
-        AVPacket packet;
-        if (0 != av_new_packet(&packet, nPicSize))
-        {
-            printf("[CBaseVideoPlay::CompressRGB] error: av_new_packet failed.\n");
-            is_error = true;
-            break;
-        }
+        // ## 目标frame
+        // 通过像素格式(这里为 YUV)获取图片的真实大小，例如将 480 * 272 转换成 int 类型
+        int nPicSize = av_image_get_buffer_size(pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, 1);
+        // 将 picture_size 转换成字节数据，byte
+        unsigned char* pPicBuf = (uint8_t*)av_mallocz(nPicSize);
+        // 设置原始数据 AVFrame 的每一个frame 的图片大小，AVFrame 这里存储着 YUV 非压缩数据
         
-        if (!bEnd)
+        ret = av_image_fill_arrays(pFrame->data, pFrame->linesize, pPicBuf, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, 1);
+        if (ret < 0)
         {
-            // 源frame
-            AVFrame *pSrcFrame = av_frame_alloc();
-            if (NULL == pSrcFrame)
-            {
-                printf("[CBaseVideoPlay::CompressRGB] error: av_frame_alloc failed.\n");
-                is_error = true;
-                break;
-            }
-            // 通过像素格式(这里为 YUV)获取图片的真实大小，例如将 480 * 272 转换成 int 类型
-            int nRGBSize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height, 1);
-            // 将 picture_size 转换成字节数据，byte
-            unsigned char* pRGBBuf = (uint8_t*)av_malloc(nRGBSize);
-            pRGBBuf = pImgData;
-            // 设置原始数据 AVFrame 的每一个frame 的图片大小，AVFrame 这里存储着 YUV 非压缩数据
-            av_image_fill_arrays(pSrcFrame->data, pSrcFrame->linesize, pRGBBuf, AV_PIX_FMT_RGB24, nWidth, nHeight, 1);
-            
-            SwsContext* pSwsCtx = sws_getContext(nWidth, nHeight, AV_PIX_FMT_RGB24, nWidth, nHeight, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
-            if (NULL == pSwsCtx)
-            {
-                is_error = true;
-                break;
-            }
-            // 翻转RGB图像
-            pSrcFrame->data[0]  += pSrcFrame->linesize[0] * (nHeight - 1);
-            pSrcFrame->linesize[0] *= -1;
-            pSrcFrame->data[1]  += pSrcFrame->linesize[1] * (nHeight / 2 - 1);
-            pSrcFrame->linesize[1] *= -1;
-            pSrcFrame->data[2]  += pSrcFrame->linesize[2] * (nHeight / 2 - 1);
-            pSrcFrame->linesize[2] *= -1;
-            
-            sws_scale(pSwsCtx, pSrcFrame->data, pSrcFrame->linesize, 0, nHeight, pFrame->data, pFrame->linesize);
-            // PTS
-            // 设置这一帧的显示时间
-            pFrame->pts = idx * (video_st->time_base.den) / ((video_st->time_base.num) * 25);
-            int got_pic = 0;
-
-            // 利用编码器进行编码，将 pFrame 编码后的数据传入 pkt 中
-            if (avcodec_encode_video2(pCodecCtx, &packet, pFrame, &got_pic) < 0)
-            {
-                printf("[CBaseVideoPlay::CompressRGB] error: avcodec_encode_video2 failed.\n");
-                is_error = true;
-                break;
-            }
-            if (got_pic != 1)
-            {
-                break;
-            }
-            
-            packet.stream_index = video_st->index;
-            av_write_frame(pFormatCtx, &packet);
-            
-            av_packet_unref(&packet);
-        }
-        else
-        {
-            if (flush_encoder(pFormatCtx, 0) < 0)
-            {
-                printf("[CBaseVideoPlay::CompressRGB] error: flush_encoder failed.\n");
-                is_error = true;
-                break;
-            }
-            
-            // 写入数据流尾部到输出文件当中，并释放文件的私有数据
-            av_write_trailer(pFormatCtx);
-            
-            if (NULL != video_st)
-            {
-                // 关闭编码器
-                avcodec_close(video_st->codec);
-                // 释放 AVFrame
-                av_frame_free(&pFrame);
-                // 释放图片 buf，就是 free() 函数，硬要改名字，当然这是跟适应编译环境有关系的
-                av_free(pPicBuf);
-            }
-            
-            // 关闭输入数据的缓存
-            avio_close(pFormatCtx->pb);
-            // 释放 AVFromatContext 结构体
-            avformat_free_context(pFormatCtx);
-        }
-    } while(0);
-    
-    if (is_error)
-    {
-        printf("^^^^^^$$$$$$$$#####@@@##@#@#@##@#@#@##@#@#@#@$@@#@$#$##$@$#@$#@$#$#@$@$#@$##$@$#@\n\n\n");
-        exit(1);
-    }
-}
-/*
-void CBaseVideoPlay::CompressRGB(AVCodecContext* pCodecCtx, uint8_t *pImgData, int nWidth, int nHeight)
-{
-    bool is_error = false;
-    
-    do
-    {
-        const char* out_file = "./video/screenshots.h264";
-        
-        // 目标frame
-        int nPicSize = 0;
-        AVFrame *pFrame;
-        {
-            pFrame = av_frame_alloc();
-            if (NULL == pFrame)
-            {
-                printf("[CBaseVideoPlay::CompressRGB] error: av_frame_alloc failed.\n");
-                is_error = true;
-                break;
-            }
-            
-            // 通过像素格式(这里为 YUV)获取图片的真实大小，例如将 480 * 272 转换成 int 类型
-            nPicSize = av_image_get_buffer_size(pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, 1);
-            // 将 picture_size 转换成字节数据，byte
-            uint8_t* pPicBuf = (uint8_t*)av_malloc(nPicSize);
-            // 设置原始数据 AVFrame 的每一个frame 的图片大小，AVFrame 这里存储着 YUV 非压缩数据
-            av_image_fill_arrays(pFrame->data, pFrame->linesize, pPicBuf, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, 1);
-        }
-        
-        AVPacket packet;
-        if (0 != av_new_packet(&packet, nPicSize))
-        {
-            printf("[CBaseVideoPlay::CompressRGB] error: av_new_packet failed.\n");
-            is_error = true;
-            break;
+            av_log(NULL, AV_LOG_ERROR, "Fill yuv data error!\n");
+            exit(-2);
         }
         
         // 源frame
@@ -845,60 +841,169 @@ void CBaseVideoPlay::CompressRGB(AVCodecContext* pCodecCtx, uint8_t *pImgData, i
             is_error = true;
             break;
         }
-        
         // 通过像素格式(这里为 YUV)获取图片的真实大小，例如将 480 * 272 转换成 int 类型
         int nRGBSize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height, 1);
         // 将 picture_size 转换成字节数据，byte
         unsigned char* pRGBBuf = (uint8_t*)av_malloc(nRGBSize);
-        pRGBBuf = pImgData;
-        // 设置原始数据 AVFrame 的每一个frame 的图片大小，AVFrame 这里存储着 YUV 非压缩数据
-        av_image_fill_arrays(pSrcFrame->data, pSrcFrame->linesize, pRGBBuf, AV_PIX_FMT_RGB24, nWidth, nHeight, 1);
-        
-        SwsContext* pSwsCtx = sws_getContext(nWidth, nHeight, AV_PIX_FMT_RGB24, nWidth, nHeight, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
-        
-        // 翻转RGB图像
-        pSrcFrame->data[0]  += pSrcFrame->linesize[0] * (nHeight - 1);
-        pSrcFrame->linesize[0] *= -1;
-        pSrcFrame->data[1]  += pSrcFrame->linesize[1] * (nHeight / 2 - 1);
-        pSrcFrame->linesize[1] *= -1;
-        pSrcFrame->data[2]  += pSrcFrame->linesize[2] * (nHeight / 2 - 1);
-        pSrcFrame->linesize[2] *= -1;
-        
-        sws_scale(pSwsCtx, pSrcFrame->data, pSrcFrame->linesize, 0, nHeight, pFrame->data, pFrame->linesize);
-        
+        if (NULL == pRGBBuf)
         {
+            av_log(NULL, AV_LOG_ERROR, "Malloc rgb data error!\n");
+            exit(-1);
+        }
+        //
+        SwsContext* pSwsCtx = sws_getContext(pCodecCtx->width, pCodecCtx->height, AV_PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
+        if (NULL == pSwsCtx)
+        {
+            printf("[CBaseVideoPlay::CompressRGB] error: sws_getContext.\n");
+            is_error = true;
+            break;
+        }
+        
+        AVPacket packet;
+        if (0 != av_new_packet(&packet, nPicSize))
+        {
+            printf("[CBaseVideoPlay::CompressRGB] error: av_new_packet failed.\n");
+            is_error = true;
+            break;
+        }
+        int head;
+        int width, height;
+        int idx = 0;
+        bool is_end;
+        
+        while (1)
+        {
+            g_pThreadProductConsumerHelper->CompressBufferLock();
+            head = pSharedData->head;
+            // if queue is empty, waiting
+            if (head == pSharedData->tail)
+            {
+                printf("[CBaseVideoPlay::CompressRGB] info: data queue is empty.\n");
+                g_pThreadProductConsumerHelper->CompressBufferEmptyWait();
+            }
+            
+            width = pSharedData->width;
+            height = pSharedData->height;
+            is_end = pSharedData->is_end;
+            
+            // deal with data
+            memcpy(pRGBBuf, pSharedData->img_data[head], nRGBSize);
+            if (NULL == pRGBBuf)
+            {
+                printf("[CBaseVideoPlay::CompressRGB] warning: NULL == pRGBBuf.\n");
+                g_pThreadProductConsumerHelper->CompressBufferUnlock();
+                ++pSharedData->head;
+                continue;
+            }
+            // 设置原始数据 AVFrame 的每一个frame 的图片大小，AVFrame 这里存储着 YUV 非压缩数据
+            ret = av_image_fill_arrays(pSrcFrame->data, pSrcFrame->linesize, pRGBBuf, AV_PIX_FMT_RGB24, width, height, 1);
+            if (ret < 0) {
+                av_log(NULL, AV_LOG_ERROR, "Fill image error!\n");
+                exit(-1);
+            }
+            
+            // 翻转RGB图像
+            pSrcFrame->data[0]  += pSrcFrame->linesize[0] * (height - 1);
+            pSrcFrame->linesize[0] *= -1;
+            pSrcFrame->data[1]  += pSrcFrame->linesize[1] * (height / 2 - 1);
+            pSrcFrame->linesize[1] *= -1;
+            pSrcFrame->data[2]  += pSrcFrame->linesize[2] * (height / 2 - 1);
+            pSrcFrame->linesize[2] *= -1;
+            pSrcFrame->format = AV_PIX_FMT_RGB24;
+            sws_scale(pSwsCtx, pSrcFrame->data, pSrcFrame->linesize, 0, height, pFrame->data, pFrame->linesize);
+            pFrame->format = AV_PIX_FMT_YUV420P;
             // PTS
             // 设置这一帧的显示时间
-            //pFrame->pts = idx * (video_st->time_base.den) / ((video_st->time_base.num) * 25);
-            pFrame->pts = idx * (pCodecCtx->time_base.den) / (pCodecCtx->time_base.num * 25);
+            pFrame->pts = idx * (video_st->time_base.den) / ((video_st->time_base.num) * 25);
             int got_pic = 0;
-            
             // 利用编码器进行编码，将 pFrame 编码后的数据传入 pkt 中
             if (avcodec_encode_video2(pCodecCtx, &packet, pFrame, &got_pic) < 0)
             {
                 printf("[CBaseVideoPlay::CompressRGB] error: avcodec_encode_video2 failed.\n");
                 is_error = true;
+                g_pThreadProductConsumerHelper->CompressBufferUnlock();
                 break;
             }
             if (got_pic != 1)
             {
-                break;
+                printf("[CBaseVideoPlay::CompressRGB] warning: got_pic != 1.\n");
+                g_pThreadProductConsumerHelper->CompressBufferUnlock();
+                continue;
             }
             
-            // 编码成功后写入 AVPacket 到 输入输出数据操作着 pFormatCtx 中，当然，记得释放内存
-            printf("------- Succeed to encode frame: %5d\tsize:%5d\n", idx, packet.size);
-            ++idx;
-            
             packet.stream_index = video_st->index;
-            av_write_frame(pFormatCtx, &packet);
+            ret = av_interleaved_write_frame(pFormatCtx, &packet);
+            if (ret < 0)
+            {
+                av_log(NULL, AV_LOG_ERROR, "Write packet error!\n");
+            }
+            // free image data
+            free(pSharedData->img_data[head]);
+            pSharedData->img_data[head] = NULL;
             
             av_packet_unref(&packet);
+            ++idx;
+            
+            ++pSharedData->head;
+            if (pSharedData->head >= CBaseVideoPlay::COMPRESS_SHARED_DATA_QUEUE_CAP)
+            {
+                pSharedData->head = 0;
+            }
+            // if queue is full, sigal now is not
+            if (pSharedData->tail + 1 == head
+                || (head == 0 && pSharedData->tail + 1 == CBaseVideoPlay::COMPRESS_SHARED_DATA_QUEUE_CAP))
+            {
+                printf("[CBaseVideoPlay::CompressRGB] info: data queue is not full now.\n");
+                g_pThreadProductConsumerHelper->CompressBufferNotFullSignal();
+            }
+            g_pThreadProductConsumerHelper->CompressBufferUnlock();
+            
+            // if is end
+            if (is_end)
+            {
+                break;
+            }
         }
+        
+        if (is_error)
+        {
+            break;
+        }
+        
+        if (flush_encoder(pFormatCtx, 0) < 0)
+        {
+            printf("[CBaseVideoPlay::CompressRGB] error: flush_encoder failed.\n");
+            is_error = true;
+            break;
+        }
+        
+        // 写入数据流尾部到输出文件当中，并释放文件的私有数据
+        av_write_trailer(pFormatCtx);
+        
+        if (NULL != video_st)
+        {
+            // 关闭编码器
+            avcodec_close(video_st->codec);
+            // 释放 AVFrame
+            av_frame_free(&pFrame);
+            av_frame_free(&pSrcFrame);
+            // 释放图片 buf，就是 free() 函数，硬要改名字，当然这是跟适应编译环境有关系的
+            av_free(pPicBuf);
+        }
+        
+        free(pRGBBuf);
+        pRGBBuf = NULL;
+        
+        sws_freeContext(pSwsCtx);
+        // 关闭输入数据的缓存
+        avio_close(pFormatCtx->pb);
+        // 释放 AVFromatContext 结构体
+        avformat_free_context(pFormatCtx);
     } while(0);
     
     if (is_error)
     {
+        printf("^^^^^^$$$$$$$$#####@@@##@#@#@##@#@#@##@#@#@#@$@@#@$#$##$@$#@$#@$#$#@$@$#@$##$@$#@\n\n\n");
         exit(1);
     }
 }
- */

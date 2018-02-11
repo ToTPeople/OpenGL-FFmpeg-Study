@@ -52,9 +52,45 @@ void CThreadProductConsumerHelper::BufferUnlock()
     pthread_mutex_unlock(&m_buffer_mutex);
 }
 
+// 压缩数据
+void CThreadProductConsumerHelper::CompressBufferFullWait()
+{
+    pthread_cond_wait(&m_compress_buffer_not_full_cond, &m_compress_buffer_mutex);
+}
+
+void CThreadProductConsumerHelper::CompressBufferNotEmptySignal()
+{
+    pthread_cond_signal(&m_compress_buffer_not_empty_cond);
+}
+
+void CThreadProductConsumerHelper::CompressBufferEmptyWait()
+{
+    pthread_cond_wait(&m_compress_buffer_not_empty_cond, &m_compress_buffer_mutex);
+}
+
+void CThreadProductConsumerHelper::CompressBufferNotFullSignal()
+{
+    pthread_cond_signal(&m_compress_buffer_not_full_cond);
+}
+
+void CThreadProductConsumerHelper::CompressBufferLock()
+{
+    pthread_mutex_lock(&m_compress_buffer_mutex);
+}
+
+void CThreadProductConsumerHelper::CompressBufferUnlock()
+{
+    pthread_mutex_unlock(&m_compress_buffer_mutex);
+}
+// 压缩数据
+
 CThreadProductConsumerHelper::CThreadProductConsumerHelper()
 {
     pthread_mutex_init(&m_buffer_mutex, NULL);
     pthread_cond_init(&m_buffer_not_full_cond, NULL);
     pthread_cond_init(&m_buffer_not_empty_cond, NULL);
+    //
+    pthread_mutex_init(&m_compress_buffer_mutex, NULL);
+    pthread_cond_init(&m_compress_buffer_not_full_cond, NULL);
+    pthread_cond_init(&m_compress_buffer_not_empty_cond, NULL);
 }

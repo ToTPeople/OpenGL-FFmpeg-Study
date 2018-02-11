@@ -32,6 +32,7 @@
 #define MAX_Z_DEPTH                  (1.1f);    // 设置一个z轴最大值，因为目前这个屏幕显示-1,1范围
 
 const int g_nDefaultMaxLineLength = 128;
+const int g_default_file_path_length = 128;
 
 const char* const kszOutlineFragShader = "./outline_frag_shader";       // 边框
 // tmp
@@ -106,7 +107,8 @@ const char* const kszSquareVertexShader = "./square_vertex_shader";
 const char* const kszSquareFragementShader = "./square_frag_shader";
 // 纹理图片路径
 #ifndef TEST_BLEND
-const char* const kszSquareImagePath = "./441H.jpg";//"./uvtemplate.bmp";
+const char* const kszSquareImagePath = "./uvtemplate.bmp";
+//"./441H.jpg";
 #else
 const char* const kszSquareImagePath = "window.png";//"grass.png";//"./441H.jpg";//"./uvtemplate.bmp";
 #endif
@@ -114,6 +116,7 @@ const char* const kszCubeImagePath = "./uvmap.DDS";
 
 const char* const kszVideoPlayImagePath = "./pic/black.jpg";
 
-const char* const kszSharedFilePath = "./shmfile";
+const char* const kszSharedFilePath = "./shmfile";                      // 视频解析共享内存数据
+const char* const kszCompressionSharedFilePath = "./compressshmfile";   // 压缩共享内存数据
 
 #endif /* common_define_h */

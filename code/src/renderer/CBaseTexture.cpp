@@ -11,6 +11,11 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+namespace
+{
+#define MIPMAP_TEXTURE_TEST
+}
+
 CBaseTexture::CBaseTexture()
 : m_strImagePath("")
 , m_uHandleID(0)
@@ -106,16 +111,15 @@ void CBaseTexture::UpdateTexture(const void *pData, int width, int height, bool 
     if (bReGenerate)
     {
         glTexImage2D(m_uTarget, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pData);
-        glGenerateMipmap(m_uTarget);
     }
     else
     {
         // update the image to OpenGL
         glTexSubImage2D(m_uTarget, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pData);
-#ifdef TEST_FBO
-        glGenerateMipmap(GL_TEXTURE_2D);
-#endif
     }
+#ifdef MIPMAP_TEXTURE_TEST
+    glGenerateMipmap(m_uTarget);
+#endif
 }
 
 unsigned int CBaseTexture::GetHandleID()
@@ -223,10 +227,16 @@ unsigned int CBaseTexture::LoadBMPCustom(const char * imagepath)
     // When MAGnifying the image (no bigger mipmap available), use LINEAR filtering
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     // When MINifying the image, use a LINEAR blend of two mipmaps, each filtered LINEARLY too
+#ifdef MIPMAP_TEXTURE_TEST
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+#else
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+#endif
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     // Generate mipmaps, by the way.
+#ifdef MIPMAP_TEXTURE_TEST
     glGenerateMipmap(GL_TEXTURE_2D);
+#endif
     
     STBI_FREE(data);
     

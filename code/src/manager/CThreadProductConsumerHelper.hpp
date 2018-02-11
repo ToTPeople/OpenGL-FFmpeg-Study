@@ -18,6 +18,7 @@ public:
     static CThreadProductConsumerHelper* GetInstance();
     
 public:
+    // 视频解析
     // 生产者
     void BufferFullWait();
     void BufferNotEmptySignal();
@@ -28,14 +29,30 @@ public:
     void BufferLock();
     void BufferUnlock();
     
+    // 数据压缩
+    // 生产者
+    void CompressBufferFullWait();
+    void CompressBufferNotEmptySignal();
+    // 消费者
+    void CompressBufferEmptyWait();
+    void CompressBufferNotFullSignal();
+    // 互斥锁
+    void CompressBufferLock();
+    void CompressBufferUnlock();
+    
 private:
     CThreadProductConsumerHelper();
     
 private:
     static CThreadProductConsumerHelper*   m_pInstance;
+    // 视频解析
     pthread_mutex_t                 m_buffer_mutex;
     pthread_cond_t                  m_buffer_not_full_cond;
     pthread_cond_t                  m_buffer_not_empty_cond;
+    // 数据压缩
+    pthread_mutex_t                 m_compress_buffer_mutex;
+    pthread_cond_t                  m_compress_buffer_not_full_cond;
+    pthread_cond_t                  m_compress_buffer_not_empty_cond;
 };
 
 #define g_pThreadProductConsumerHelper (CThreadProductConsumerHelper::GetInstance())
