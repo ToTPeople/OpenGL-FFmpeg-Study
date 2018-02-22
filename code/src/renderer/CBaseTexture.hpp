@@ -29,7 +29,7 @@ public:
     virtual void LoadTexture(int nLoadType);
     
     void UpdateTexture(const std::string &strPath);
-    void UpdateTexture(const void * pData, int width, int height, bool bReGenerate = false);
+    void UpdateTexture(const void * pData, int width, int height);
     
     unsigned int GetHandleID();
     unsigned int GetTarget();       // target目前只用GL_TEXTURE_2D，后续有使用其他再加接口让用户设置
@@ -45,6 +45,7 @@ protected:
     std::string                 m_strImagePath;                 // 纹理图片路径
     unsigned int                m_uHandleID;
     unsigned int                m_uTarget;
+    bool                        m_is_first_update;
 };
 
 #endif /* CBaseTexture_hpp */

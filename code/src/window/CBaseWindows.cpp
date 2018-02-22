@@ -265,11 +265,11 @@ void CBaseWindows::MouseCallBackFunc(GLFWwindow *pWindow, int nButton, int nActi
     }
 }
 
-void CBaseWindows::VideoPlayCallBackFunc(void *pData[], int *width, int *height, bool *firstCB, const std::string* strTexture)
+void CBaseWindows::VideoPlayCallBackFunc(void *pData[], int *width, int *height, const std::string* strTexture)
 {
-    if (NULL == pData || NULL == width || NULL == height || NULL == firstCB || NULL == strTexture)
+    if (NULL == pData || NULL == width || NULL == height || NULL == strTexture)
     {
-        printf("[CBaseWindows::VideoPlayCallBackFunc] warning: param invalid. pData[%p], width[%p], height[%p], firstCB[%p], strTexture[%p]\n", pData, width, height, firstCB, strTexture);
+        printf("[CBaseWindows::VideoPlayCallBackFunc] warning: param invalid. pData[%p], width[%p], height[%p], strTexture[%p]\n", pData, width, height, strTexture);
         return;
     }
     
@@ -302,7 +302,7 @@ void CBaseWindows::VideoPlayCallBackFunc(void *pData[], int *width, int *height,
             printf("[CBaseWindows::VideoPlayCallBackFunc] error: texture[%s] is null.\n", strTexture[i].c_str());
             return;
         }
-        pTexture->UpdateTexture(pData[i], width[i], height[i], firstCB[i]);
+        pTexture->UpdateTexture(pData[i], width[i], height[i]);
     }
     // 更新窗口显示
     if (bNeedFresh)

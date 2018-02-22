@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 
 #ifdef __cplusplus
@@ -33,15 +34,18 @@ extern "C"
 #include <stb_image_write.h>
 
 #include "common_define.h"
+#include "CPthreadMuteHelper.hpp"
 #include "CThreadProductConsumerHelper.hpp"
 
 namespace
 {
     const int g_nSendDataSleepTime = 30 * 1000;// 单位：微秒 发数据刷新界面频率
+    const int g_nTimerDataSleepTime = 10 * 1000;// 单位：微秒 发数据刷新界面频率
     const int g_nMaxImageWidth = 2048;
     const int g_nMaxImageHeight = 1536;
     
 //#define DECODE_LOG
+//#define DECODE_TIMESTAMP_LOG
 }
 
 CBaseVideoPlay::CBaseVideoPlay(int eOpType, const std::string& strVideoPath)
@@ -54,6 +58,7 @@ CBaseVideoPlay::CBaseVideoPlay(int eOpType, const std::string& strVideoPath)
 , m_nCurThreadCnt(0)
 , idx(0)
 , m_shmid(-1)
+, m_compress_shmid(-1)
 , m_pSharedData(NULL)
 , m_pCompressSharedData(NULL)
 {
@@ -63,52 +68,64 @@ CBaseVideoPlay::~CBaseVideoPlay()
 {
 }
 
-static void AddData2Queue(CBaseVideoPlay::SharedData_s *pShareData, uint8_t* pRGBData, AVCodecContext* pCodecCtx, int nRGBSize, int thread_idx, int thread_max, int idx)
+// 返回单位ms
+static long long getCurrentTime()
 {
-    if (NULL == pShareData || NULL == pRGBData || NULL == pCodecCtx || nRGBSize <= 0)
-    {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    long long ms = tv.tv_sec;
+    return ms * 1000 + tv.tv_usec / 1000;
+}
+
+static void AddData2Queue(CBaseVideoPlay::SharedData_s *pShareData, uint8_t* pRGBData, AVCodecContext* pCodecCtx, int nRGBSize, int thread_idx, int queue_max, int idx, long long cur_frame_pts)
+{
+    if (NULL == pShareData || NULL == pRGBData || NULL == pCodecCtx || nRGBSize <= 0) {
         printf("[AddData2Queue] warning: param invalid. pShareData[%p], pRGBData[%p], pCodecCtx[%p], nRGBSize[%d]\n"
                , pShareData, pRGBData, pCodecCtx, nRGBSize);
         return;
     }
-    g_pThreadProductConsumerHelper->BufferLock();
+    
+    static int ic = 0;
+    
+//    g_pThreadProductConsumerHelper->BufferLock();
     int back = pShareData->back[thread_idx];
     
-    if (back+1 == pShareData->pre[thread_idx]
-        || (back+1 == thread_max && 0 == pShareData->pre[thread_idx]))
-    {
-#ifdef DECODE_LOG
-        printf("[CBaseVideoPlay::Play] info: queue is full, waiting...\n");
-#endif
-        g_pThreadProductConsumerHelper->BufferFullWait();
+    while (1) {
+        if ( !((back+1)%queue_max == pShareData->pre[thread_idx]) ) {
+    #ifdef DECODE_LOG
+            printf("[CBaseVideoPlay::Play] info: thread_idx[%d] queue is full, waiting...\n", thread_idx);
+    #endif
+            break;
+//            g_pThreadProductConsumerHelper->BufferFullWait();
+        }
     }
+    //
+//    g_pThreadProductConsumerHelper->BufferUnlock();
+    //
     
     pShareData->pData[thread_idx][back] = malloc(nRGBSize);
-    if (NULL == pShareData->pData[thread_idx][back])
-    {
+    if (NULL == pShareData->pData[thread_idx][back]) {
         printf("[CBaseVideoPlay::Play] warning: malloc memory failed.\n");
-        g_pThreadProductConsumerHelper->BufferUnlock();
+//        g_pThreadProductConsumerHelper->BufferUnlock();
         return;
     }
     memcpy(pShareData->pData[thread_idx][back], pRGBData, nRGBSize);
     pShareData->nWidth[thread_idx] = pCodecCtx->width;
     pShareData->nHeight[thread_idx] = pCodecCtx->height;
-    pShareData->bFirstCB[thread_idx][back] = (0 == idx);
-    
-    ++pShareData->back[thread_idx];
-    if (pShareData->back[thread_idx] >= thread_max)
-    {
-        pShareData->back[thread_idx] = 0;
+    pShareData->pts[thread_idx][back] = cur_frame_pts;
+    if (0 == idx) {
+        pShareData->start_pts[thread_idx] = getCurrentTime();
     }
+    
+    pShareData->back[thread_idx] = (back+1) % queue_max;
     // 解析这个数据前，队列是否为空，为空则发消息队列不为空消息出来
-    if (pShareData->pre[thread_idx] == back)
-    {
+    if (pShareData->pre[thread_idx] == back) {
 #ifdef DECODE_LOG
         printf("[CBaseVideoPlay::Play] info: queue not empty signal.\n");
 #endif
-        g_pThreadProductConsumerHelper->BufferNotEmptySignal();
+//        g_pThreadProductConsumerHelper->BufferNotEmptySignal();
     }
-    g_pThreadProductConsumerHelper->BufferUnlock();
+//    g_pThreadProductConsumerHelper->BufferUnlock();
 }
 
 void CBaseVideoPlay::Play(const char* filename, int* cur_thread_cnt, int thread_idx)
@@ -229,14 +246,24 @@ void CBaseVideoPlay::Play(const char* filename, int* cur_thread_cnt, int thread_
     
     idx = 0;
     AVPacket packet;
-    while (av_read_frame(pFmtContext, &packet) >= 0)
-    {
-        if (nVideoStreamIdx == packet.stream_index)
-        {
+    AVRational tmp_time_base;
+    tmp_time_base.num = 1;
+    tmp_time_base.den = 1000;
+    
+    long long cur_frame_pts, cur_frame_duration;
+    
+    while (av_read_frame(pFmtContext, &packet) >= 0) {
+        if (nVideoStreamIdx == packet.stream_index) {
             int nResult = avcodec_send_packet(pCodecCtx, &packet);
             nResult += avcodec_receive_frame(pCodecCtx, pFrame);
-            if (0 == nResult)
-            {
+            if (0 == nResult) {
+                // 播放时间转换 demux -> decode -> raw
+                cur_frame_pts = av_rescale_q_rnd(pFrame->pts, pFmtContext->streams[nVideoStreamIdx]->time_base, pCodecCtx->time_base, AV_ROUND_INF);
+                cur_frame_pts = av_rescale_q_rnd(cur_frame_pts, pCodecCtx->time_base, tmp_time_base, AV_ROUND_INF);
+                
+#ifdef DECODE_TIMESTAMP_LOG
+                printf("$$$$$$$$$ idx[%d], framePTS[%ld], pkt_duration[%lld]\n", idx, pFrame->pts, pFrame->pkt_duration);
+#endif
                 // 反转图像 ，否则生成的图像是上下调到的
                 pFrame->data[0] += pFrame->linesize[0] * (pCodecCtx->height - 1);
                 pFrame->linesize[0] *= -1;
@@ -247,14 +274,24 @@ void CBaseVideoPlay::Play(const char* filename, int* cur_thread_cnt, int thread_
                 
                 sws_scale(pSwsCtx, pFrame->data, pFrame->linesize, 0, pCodecCtx->height, pFrameRGB->data, pFrameRGB->linesize);
                 // 设置数据到共享内存中
-                AddData2Queue(pShareData, pFrameRGB->data[0], pCodecCtx, nPicSize, thread_idx, THREAD_MAX_COUNT, idx);
+#if 1
+                AddData2Queue(pShareData, pFrameRGB->data[0], pCodecCtx, nPicSize, thread_idx, SHARED_DATA_QUEUE_COUNT, idx, cur_frame_pts);
+#else
+                
+                char filename[255];
+                //文件存放路径，根据自己的修改
+                sprintf(filename, "./bmp/%s_%d.bmp", "filename", idx);
+                
+                stbi_write_bmp(filename, pCodecCtx->width, pCodecCtx->height, 3, pFrameRGB->data[0]);
+#endif
                 
                 ++idx;
-            }
+//                    break;
+            } // end if(0 == nResult)
             
             av_packet_unref(&packet);
         }
-    }
+    } // end while (av_read_frame(pFmtContext, &packet) >= 0)
     
     // free
     sws_freeContext(pSwsCtx);
@@ -285,7 +322,7 @@ void CBaseVideoPlay::Run(const std::string& strTexture)
     {
         av_register_all();
         avformat_network_init();
-        // 打开共享内存
+        // 打开队列数据共享内存
         m_shmid = open(kszSharedFilePath, O_CREAT | O_RDWR, 0666);
         if (-1 == m_shmid)
         {
@@ -320,16 +357,34 @@ void CBaseVideoPlay::Run(const std::string& strTexture)
     std::thread t(Play, m_strVideoPath.c_str(), &m_nCurThreadCnt, m_nThreadCnt-1);
     t.detach();
     
+    m_thread_start_pts[m_nThreadCnt - 1] = getCurrentTime();
     if (!m_bInit)
     {
         m_bInit = true;
+        // 循环取数据刷新
         bool bHasData = true;
+        long long pre_t, cur_t, total_time = m_thread_start_pts[0];
+        pre_t = getCurrentTime();
+        
         while (1)
         {
-            bHasData = SendData();
+            cur_t = getCurrentTime();
+            long long tmp_tot = cur_t - pre_t;
+            
+            bHasData = SendData(total_time + tmp_tot);
             if (m_nCurThreadCnt <= 0 && !bHasData)
             {
+                if (bHasData)
+                {
+                    printf("[-------------=-=-=-=-=-=-_###+_#+_#+#_+#_#+#_##_+#_#+#_#]\n");
+                    continue;
+                }
                 break;
+            }
+            if (bHasData)
+            {
+                total_time += cur_t - pre_t;
+                pre_t = cur_t;
             }
         }
         
@@ -504,13 +559,64 @@ void CBaseVideoPlay::SaveAsBMP(AVFrame *pFrameRGB, int width, int height, int in
     stbi_write_bmp(filename, width, height, 3, pFrameRGB->data[0]);
 }
 
-bool CBaseVideoPlay::SendData()
+void CBaseVideoPlay::FillDataByPts(long long cur_clock, int idx, void *pData[THREAD_MAX_COUNT], std::string& strTexture, int &width, int &height, bool& bPreFull)
+{
+    int old_pre = m_pSharedData->pre[idx];
+    int new_pre = old_pre;
+    
+    if (m_pSharedData->start_pts[idx] <= 0) {
+        pData[idx] = NULL;
+        return;
+    }
+    
+    // 根据时间戳取数据，小于cur_clock的丢掉
+    while (1) {
+//        printf("############ pts[%lld], minus[%lld], new_pre[%d], back[%d] #####\n", m_pSharedData->pts[idx][new_pre], cur_clock - m_pSharedData->start_pts[idx], new_pre, m_pSharedData->back[idx]);
+        if (cur_clock - m_pSharedData->start_pts[idx] > m_pSharedData->pts[idx][new_pre]) {
+            if (NULL != m_pSharedData->pData[idx][new_pre]) {
+                free(m_pSharedData->pData[idx][new_pre]);
+                m_pSharedData->pData[idx][new_pre] = NULL;
+            }
+            new_pre = (new_pre + 1) % SHARED_DATA_QUEUE_COUNT;
+            if (new_pre >= m_pSharedData->back[idx]) {
+                pData[idx] = NULL;
+                m_pSharedData->pre[idx] = new_pre;
+                // 判断取数据之前是否队列满了
+                if ((m_pSharedData->back[idx]+1)%SHARED_DATA_QUEUE_COUNT == old_pre)
+                {
+                    bPreFull = true;
+                }
+                return;
+            }
+        } else {
+            break;
+        }
+    }
+    
+    pData[idx] = m_pSharedData->pData[idx][new_pre];
+    //m_pSharedData->pData[idx][new_pre] = NULL;
+    width = m_pSharedData->nWidth[idx];
+    height = m_pSharedData->nHeight[idx];
+    strTexture = m_strTexture[idx];
+    
+    printf("[CBaseVideoPlay::FillDataByPts] idx[%d], pre[%d], pData[%p], width[%d], height[%d], strTexture[%s] \n", idx, new_pre, m_pSharedData->pData[idx][new_pre], width, height, strTexture.c_str());
+    
+    m_pSharedData->pre[idx] = new_pre;//(new_pre + 1) % SHARED_DATA_QUEUE_COUNT;
+    
+    // 判断取数据之前是否队列满了
+    if ((m_pSharedData->back[idx]+1)%SHARED_DATA_QUEUE_COUNT == old_pre)
+    {
+        bPreFull = true;
+    }
+}
+
+bool CBaseVideoPlay::SendData(long long cur_clock)
 {
     if (NULL != m_pFuncVideoCB)
     {
+        // 读取数据刷新界面
         void* pData[THREAD_MAX_COUNT];
         int width[THREAD_MAX_COUNT], height[THREAD_MAX_COUNT];
-        bool bFirstCB[THREAD_MAX_COUNT];
         bool bHasData = false;
         bool bPreFull = false;
         std::string strTexture[THREAD_MAX_COUNT];
@@ -519,7 +625,7 @@ bool CBaseVideoPlay::SendData()
             pData[i] = NULL;
         }
         
-        g_pThreadProductConsumerHelper->BufferLock();
+//        g_pThreadProductConsumerHelper->BufferLock();
         
         for (int i = 0; i < m_nThreadCnt; ++i)
         {
@@ -533,76 +639,71 @@ bool CBaseVideoPlay::SendData()
         {
             if (m_nCurThreadCnt <= 0)
             {
+//                g_pThreadProductConsumerHelper->BufferUnlock();
                 return false;
             }
 #ifdef DECODE_LOG
             printf("[CBaseVideoPlay::SendData] info: queue is empty, waiting.\n");
 #endif
-            g_pThreadProductConsumerHelper->BufferEmptyWait();
+            return false;
+//            g_pThreadProductConsumerHelper->BufferEmptyWait();
             bHasData = true;
         }
-        
+//        g_pThreadProductConsumerHelper->BufferUnlock();
+//        g_pThreadProductConsumerHelper->BufferLock();
         for (int i = 0; i < m_nThreadCnt; ++i)
         {
-            int pre = m_pSharedData->pre[i];
-            
-            pData[i] = m_pSharedData->pData[i][pre];
-            m_pSharedData->pData[i][pre] = NULL;
-            width[i] = m_pSharedData->nWidth[i];
-            height[i] = m_pSharedData->nHeight[i];
-            bFirstCB[i] = m_pSharedData->bFirstCB[i][pre];
-            strTexture[i] = m_strTexture[i];
-            
-            ++m_pSharedData->pre[i];
-            if (m_pSharedData->pre[i] >= THREAD_MAX_COUNT)
-            {
-                m_pSharedData->pre[i] = 0;
-            }
-            
-            // 判断取数据之前是否队列满了
-            if (m_pSharedData->back[i] + 1 == pre
-                || (0 == pre && m_pSharedData->back[i]+1 == THREAD_MAX_COUNT))
-            {
-                bPreFull = true;
-            }
+            FillDataByPts(cur_clock, i, pData, strTexture[i], width[i], height[i], bPreFull);
         }
+//        g_pThreadProductConsumerHelper->BufferUnlock();
         
         if (bPreFull)
         {
 #ifdef DECODE_LOG
             printf("[CBaseVideoPlay::SendData] info: queue not full signal.\n");
 #endif
-            g_pThreadProductConsumerHelper->BufferNotFullSignal();
+//            g_pThreadProductConsumerHelper->BufferNotFullSignal();
         }
         
-        g_pThreadProductConsumerHelper->BufferUnlock();
+//        g_pThreadProductConsumerHelper->BufferUnlock();
         
         bool bRealData = false;
+        int nCnt = 0;
         for (int i = 0; i < m_nThreadCnt; ++i)
         {
             if (NULL != pData[i])
             {
                 bRealData = true;
-                break;
+                ++nCnt;
+                
+                printf("[CBaseVideoPlay::SendData] idx[%d], pData[%p], width[%d], height[%d], strTexture[%s] \n", i, pData[i], width[i], height[i], strTexture[i].c_str());
+                //break;
             }
         }
+        
         if (!bRealData)
         {
-            usleep(g_nSendDataSleepTime);
             return false;
         }
+        printf("***************** nCnt[%d], bRealData[%d], bHasData[%d] ****************\n", nCnt, bRealData, bHasData);
         
         if (bHasData)
         {
-            (*m_pFuncVideoCB)(pData, width, height, bFirstCB, strTexture);
+//            long long pre_t, cur_t;
+//            static long long diff_t = getCurrentTime();
+//            pre_t = getCurrentTime();
+            (*m_pFuncVideoCB)(pData, width, height, strTexture);
+//            cur_t = getCurrentTime();
+//            printf("[-=-=---=-=-=-=-==] use time is %lld ms. ddd[%lld]\n", cur_t - pre_t, pre_t - diff_t);
+//            diff_t = pre_t;
             for (int i=0; i<m_nThreadCnt; ++i)
             {
                 if (NULL != pData[i])
                 {
-                    free(pData[i]);
+                    //free(pData[i]);
                 }
             }
-            usleep(g_nSendDataSleepTime);
+            
             return true;
         }
     }

@@ -20,6 +20,7 @@ CBaseTexture::CBaseTexture()
 : m_strImagePath("")
 , m_uHandleID(0)
 , m_uTarget(GL_TEXTURE_2D)
+, m_is_first_update(true)
 {
 }
 
@@ -98,7 +99,7 @@ void CBaseTexture::UpdateTexture(const std::string &strPath)
     STBI_FREE(data);
 }
 
-void CBaseTexture::UpdateTexture(const void *pData, int width, int height, bool bReGenerate /* = false */)
+void CBaseTexture::UpdateTexture(const void *pData, int width, int height)
 {
     if (NULL == pData || width <=0 || height <= 0)
     {
@@ -108,8 +109,9 @@ void CBaseTexture::UpdateTexture(const void *pData, int width, int height, bool 
     
     glBindTexture(GL_TEXTURE_2D, m_uHandleID);
     
-    if (bReGenerate)
+    if (m_is_first_update)
     {
+        m_is_first_update = false;
         glTexImage2D(m_uTarget, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pData);
     }
     else

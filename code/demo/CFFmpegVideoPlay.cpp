@@ -328,7 +328,7 @@ void CFFmpegVideoPlay::Play()
                     m_pShader->UseProgram();
                     
                     // 更新纹理
-                    m_pTexture->UpdateTexture((pFrameRGB->data[0]), pCodecCtx->width, pCodecCtx->height, (0 == i));
+                    m_pTexture->UpdateTexture((pFrameRGB->data[0]), pCodecCtx->width, pCodecCtx->height);
                     
                     glActiveTexture(GL_TEXTURE0);
                     glBindTexture(m_pTexture->GetTarget(), m_pTexture->GetHandleID());

@@ -33,7 +33,7 @@ public:
     static void KeyCallBackFunc(GLFWwindow *pWindow, int nKey, int nScanMode, int nAction, int nMods);
     static void MouseCallBackFunc(GLFWwindow *pWindow, int nButton, int nAction, int nMods);
     // 视频播放回调函数
-    static void VideoPlayCallBackFunc(void* pData[], int *width, int *height, bool *firstCB, const std::string* strTexture);
+    static void VideoPlayCallBackFunc(void* pData[], int *width, int *height, const std::string* strTexture);
     
 public:
     // 获取窗口实例

@@ -19,7 +19,7 @@ struct AVCodecContext;
 
 // 回调函数
 // 视频解析后，传递frame数据回调函数
-typedef void (*FuncVideoCB)(void *pData[], int *width, int *height, bool *bFirstCB, const std::string* strTexture);
+typedef void (*FuncVideoCB)(void *pData[], int *width, int *height, const std::string* strTexture);
 
 class CBaseVideoPlay
 {
@@ -27,7 +27,7 @@ public:
     enum
     {
         THREAD_MAX_COUNT = 5,                   // 子线程个数
-        SHARED_DATA_QUEUE_COUNT = 10,           // 视频解析共享内存各个线程数据保存个数
+        SHARED_DATA_QUEUE_COUNT = 30,           // 视频解析共享内存各个线程数据保存个数
         COMPRESS_SHARED_DATA_QUEUE_CAP = 30,    // 压缩共享内存数据队列保存个数
     };
     // 视频解析共享内存数据结构
@@ -37,7 +37,8 @@ public:
         int nHeight[THREAD_MAX_COUNT];                                  // decode image height
         int pre[THREAD_MAX_COUNT];                                      // the head of queue
         int back[THREAD_MAX_COUNT];                                     // the tail of queue
-        bool bFirstCB[THREAD_MAX_COUNT][SHARED_DATA_QUEUE_COUNT];       // is the first decode data
+        long long start_pts[THREAD_MAX_COUNT];
+        long long pts[THREAD_MAX_COUNT][SHARED_DATA_QUEUE_COUNT];       // pts
         void* pData[THREAD_MAX_COUNT][SHARED_DATA_QUEUE_COUNT];         // decode data
     };
     // 截屏压缩共享内存数据结构
@@ -75,8 +76,9 @@ protected:
     // 保存BMP文件的函数
     void SaveAsBMP(AVFrame *pFrameRGB, int width, int height, int index);
     
+    void FillDataByPts(long long cur_clock, int idx, void* pData[THREAD_MAX_COUNT], std::string& strTexture, int& width, int& height, bool& bPreFull);
     // 发送队列数据，更新绘制
-    bool SendData();
+    bool SendData(long long cur_clock);
     
     // 启动子线程解析视频数据
     static void Play(const char* filename, int* cur_thread_cnt, int thread_idx);
@@ -93,6 +95,7 @@ private:
     int             m_nThreadCnt;       // 已创建的子线程个数
     int             m_nCurThreadCnt;    // 当前运行中的线程个数
     int             m_shmid;            // 解析共享内存文件描述符
+    long long       m_thread_start_pts[THREAD_MAX_COUNT];
     std::string     m_strTexture[THREAD_MAX_COUNT];     // 线程解析后数据绘制的目标纹理
     struct stat     m_statBuf;          // 文件状态相关信息
     SharedData_s    *m_pSharedData;     // 共享内存映射后起始地址
