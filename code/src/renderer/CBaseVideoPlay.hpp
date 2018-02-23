@@ -27,7 +27,7 @@ public:
     enum
     {
         THREAD_MAX_COUNT = 5,                   // 子线程个数
-        SHARED_DATA_QUEUE_COUNT = 30,           // 视频解析共享内存各个线程数据保存个数
+        SHARED_DATA_QUEUE_COUNT = 10,           // 视频解析共享内存各个线程数据保存个数
         COMPRESS_SHARED_DATA_QUEUE_CAP = 30,    // 压缩共享内存数据队列保存个数
     };
     // 视频解析共享内存数据结构
@@ -76,13 +76,14 @@ protected:
     // 保存BMP文件的函数
     void SaveAsBMP(AVFrame *pFrameRGB, int width, int height, int index);
     
+    // 根据pts从队列中取数据
     void FillDataByPts(long long cur_clock, int idx, void* pData[THREAD_MAX_COUNT], std::string& strTexture, int& width, int& height, bool& bPreFull);
     // 发送队列数据，更新绘制
     bool SendData(long long cur_clock);
     
     // 启动子线程解析视频数据
     static void Play(const char* filename, int* cur_thread_cnt, int thread_idx);
-    //
+    // 启动子线程压缩RGB数据
     static void CompressRGB();
     
 private:

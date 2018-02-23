@@ -10,11 +10,12 @@
 #include "Test.hpp"
 #include "othertest.hpp"
 #include "ffmpegtest.hpp"
-//#include "CFFmpegVideoPlay.hpp"
 #include "CFFmpegYUV2H264.hpp"
+#include "mux_test.hpp"
 
 int main(int argc, const char * argv[])
 {
+    //return mux_mp4();
     return OpenGLTest();
     //return DrawElementTest();
     //return FFmpegTest();
