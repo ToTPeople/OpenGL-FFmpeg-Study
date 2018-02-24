@@ -2,8 +2,8 @@
 //  CBaseVideoPlay.hpp
 //  OpenGL_Product
 //
-//  Created by meitu on 2018/1/30.
-//  Copyright © 2018年 meitu. All rights reserved.
+//  Created by lifushan on 2018/1/30.
+//  Copyright © 2018年 lifs. All rights reserved.
 //
 
 #ifndef CBaseVideoPlay_hpp
@@ -51,6 +51,7 @@ public:
         int head;                                                       // the header location of queue
         int tail;                                                       // the tail location to queue
         int idx;                                                        // index
+        long long pts;
         uint8_t *img_data[COMPRESS_SHARED_DATA_QUEUE_CAP];              // the image rgb data
     };
     
@@ -105,6 +106,7 @@ private:
     bool            m_is_recording;
     int             idx;                // 第几段RGB图片进行视频压缩
     int             m_compress_shmid;   // 压缩共享内存文件描述符
+    long long       m_compress_pts;
     CompressSharedData_s    *m_pCompressSharedData;
     // 子线程压缩相关 end
 };

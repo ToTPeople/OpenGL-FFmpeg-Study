@@ -2,8 +2,8 @@
 //  Test.cpp
 //  OpenGL_Product
 //
-//  Created by meitu on 2018/1/13.
-//  Copyright © 2018年 meitu. All rights reserved.
+//  Created by lifushan on 2018/1/13.
+//  Copyright © 2018年 lifs. All rights reserved.
 //
 
 #include "Test.hpp"
@@ -165,7 +165,7 @@ void VideoTestInit(CBaseWindows& window)
                        , "./video/1280_720.mp4"
                        //, "./video/1920X1080.mp4"
                        //, "./video/100.mp4"
-                       //, "./video/[阳光电影www.ygdy8.net].王牌特工2：黄金圈.HD.720p.中英双字幕.rmvb"
+                       //, "./video/screenst1.mp4"
                        );
     if (NULL == pVideoPlay)
     {

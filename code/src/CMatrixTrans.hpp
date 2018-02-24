@@ -2,8 +2,8 @@
 //  CMatrixTrans.hpp
 //  OpenGL_Product
 //  坐标系统处理类
-//  Created by meitu on 2018/1/12.
-//  Copyright © 2018年 meitu. All rights reserved.
+//  Created by lifushan on 2018/1/12.
+//  Copyright © 2018年 lifs. All rights reserved.
 //
 
 #ifndef CMatrixTrans_hpp

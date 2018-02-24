@@ -2,8 +2,8 @@
 //  CBaseWindows.cpp
 //  OpenGL_Product
 //
-//  Created by meitu on 2018/1/12.
-//  Copyright © 2018年 meitu. All rights reserved.
+//  Created by lifushan on 2018/1/12.
+//  Copyright © 2018年 lifs. All rights reserved.
 //
 
 #include "CBaseWindows.hpp"
@@ -11,6 +11,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <sys/time.h>
 
 #include "common_define.h"
 #include "commonfun.hpp"
@@ -66,6 +67,15 @@ CBaseWindows::~CBaseWindows()
     {
         glfwTerminate();
     }
+}
+
+// 返回单位ms
+static long long getCurrentTime()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    long long ms = tv.tv_sec;
+    return ms * 1000 + tv.tv_usec / 1000;
 }
 
 // 按空格操作：添加方形或视频
@@ -499,6 +509,9 @@ void CBaseWindows::VideoCallBackShow()
     // tmp
     if (m_bStartRecord)
     {
+        static int icnt = 0;
+        static long long st = getCurrentTime();
+        ++icnt;
         // mac屏幕2倍
         int nWidth = m_iWinWidth * 2;
         int nHeight = m_iWinHeight * 2;
@@ -516,6 +529,7 @@ void CBaseWindows::VideoCallBackShow()
         {
             m_bEndRecord = false;
             m_bStartRecord = false;
+            printf("=======$$$$$$$$$$$$ renderer time [%d], use time[%lld ms] =====\n", icnt, (getCurrentTime()-st));
         }
         free(pImgData);
     }

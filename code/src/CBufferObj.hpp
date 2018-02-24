@@ -2,8 +2,8 @@
 //  CBufferObj.hpp
 //  OpenGL_Product
 //  缓存处理类(单例)
-//  Created by meitu on 2018/1/26.
-//  Copyright © 2018年 meitu. All rights reserved.
+//  Created by lifushan on 2018/1/26.
+//  Copyright © 2018年 lifs. All rights reserved.
 //
 
 #ifndef CBufferObj_hpp

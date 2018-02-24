@@ -2,8 +2,8 @@
 //  mux_test.hpp
 //  OpenGL_Product
 //
-//  Created by meitu on 2018/2/23.
-//  Copyright © 2018年 meitu. All rights reserved.
+//  Created by lifushan on 2018/2/23.
+//  Copyright © 2018年 lifs. All rights reserved.
 //
 
 #ifndef mux_test_hpp

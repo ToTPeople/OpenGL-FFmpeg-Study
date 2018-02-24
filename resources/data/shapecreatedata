@@ -1,0 +1,27 @@
+# dp  = data path
+# vsp = vertex shader path
+# fsp = fragment shader path
+# tp  = texture path
+# tlt = texture load type目前支持2种：dds和bmp
+# shape 一个形状数据开始标志
+# endshape 一个形状数据结束标志
+
+shape
+dp ./square_data
+vsp ./square_vertex_shader
+fsp ./square_frag_shader
+tp ./uvtemplate.bmp
+tlt bmp
+endshape
+
+shape
+dp ./cube_data
+vsp ./vertex_shader
+fsp ./frag_shader
+tp ./uvmap.DDS
+tlt dds
+endshape
+
+
+
+

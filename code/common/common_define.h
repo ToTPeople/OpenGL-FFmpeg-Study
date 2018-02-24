@@ -2,8 +2,8 @@
 //  common_define.h
 //  OpenGL_Product
 //
-//  Created by meitu on 2018/1/14.
-//  Copyright © 2018年 meitu. All rights reserved.
+//  Created by lifushan on 2018/1/14.
+//  Copyright © 2018年 lifs. All rights reserved.
 //
 
 #ifndef common_define_h
@@ -34,10 +34,10 @@
 const int g_nDefaultMaxLineLength = 128;
 const int g_default_file_path_length = 128;
 
-const char* const kszOutlineFragShader = "./outline_frag_shader";       // 边框
+const char* const kszOutlineFragShader = "./shaders/outline_frag_shader";       // 边框
 // tmp
-const char* const kszScreenVtxShader = "./screen_vertex_shader";
-const char* const kszScreenFragShader = "./screen_frag_shader";
+const char* const kszScreenVtxShader = "./shaders/screen_vertex_shader";
+const char* const kszScreenFragShader = "./shaders/screen_frag_shader";
 
 // Render type
 enum RendererType
@@ -97,24 +97,24 @@ struct PackedVertex
 };
 
 // 数据路径
-const char* const kszScreenDataPath = "./screen_data";
-const char* const kszSquareDataPath = "./square_data";
-const char* const kszCubeDataPath = "./cube_data";
+const char* const kszScreenDataPath = "./data/screen_data";
+const char* const kszSquareDataPath = "./data/square_data";
+const char* const kszCubeDataPath = "./data/cube_data";
 // 着色器路径
-const char* const kszVertexShader = "./vertex_shader";
-const char* const kszFragementShader = "./frag_shader";
-const char* const kszSquareVertexShader = "./square_vertex_shader";
-const char* const kszSquareFragementShader = "./square_frag_shader";
+const char* const kszVertexShader = "./shaders/vertex_shader";
+const char* const kszFragementShader = "./shaders/frag_shader";
+const char* const kszSquareVertexShader = "./shaders/square_vertex_shader";
+const char* const kszSquareFragementShader = "./shaders/square_frag_shader";
 // 纹理图片路径
 #ifndef TEST_BLEND
-const char* const kszSquareImagePath = "./uvtemplate.bmp";
+const char* const kszSquareImagePath = "./picture/uvtemplate.bmp";
 //"./441H.jpg";
 #else
-const char* const kszSquareImagePath = "window.png";//"grass.png";//"./441H.jpg";//"./uvtemplate.bmp";
+const char* const kszSquareImagePath = "./picture/window.png";//"./picture/grass.png";//"./picture/441H.jpg";//"./picture/uvtemplate.bmp";
 #endif
-const char* const kszCubeImagePath = "./uvmap.DDS";
+const char* const kszCubeImagePath = "./picture/uvmap.DDS";
 
-const char* const kszVideoPlayImagePath = "./pic/black.jpg";
+const char* const kszVideoPlayImagePath = "./picture/black.jpg";
 
 const char* const kszSharedFilePath = "./shmfile";                      // 视频解析共享内存数据
 const char* const kszCompressionSharedFilePath = "./compressshmfile";   // 压缩共享内存数据

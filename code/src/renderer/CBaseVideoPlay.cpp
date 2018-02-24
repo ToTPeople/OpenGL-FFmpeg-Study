@@ -2,8 +2,8 @@
 //  CBaseVideoPlay.cpp
 //  OpenGL_Product
 //
-//  Created by meitu on 2018/1/30.
-//  Copyright © 2018年 meitu. All rights reserved.
+//  Created by lifushan on 2018/1/30.
+//  Copyright © 2018年 lifs. All rights reserved.
 //
 
 #include "CBaseVideoPlay.hpp"
@@ -58,6 +58,7 @@ CBaseVideoPlay::CBaseVideoPlay(int eOpType, const std::string& strVideoPath)
 , m_nThreadCnt(0)
 , m_nCurThreadCnt(0)
 , idx(0)
+, m_compress_pts(0)
 , m_shmid(-1)
 , m_compress_shmid(-1)
 , m_pSharedData(NULL)
@@ -423,6 +424,7 @@ void CBaseVideoPlay::Record(uint8_t *pImgData, int nWidth, int nHeight, bool bEn
         
         std::thread t(CompressRGB);
         t.detach();
+        m_compress_pts = getCurrentTime();
     }
     
     // 设置共享内存数据
@@ -450,6 +452,7 @@ void CBaseVideoPlay::Record(uint8_t *pImgData, int nWidth, int nHeight, bool bEn
         m_pCompressSharedData->is_end = bEnd;
         m_pCompressSharedData->is_first = is_first;
         m_pCompressSharedData->idx = idx;
+        m_pCompressSharedData->pts = getCurrentTime() - m_compress_pts;
         
         m_pCompressSharedData->tail = (tail + 1) % COMPRESS_SHARED_DATA_QUEUE_CAP;
         // signal now is not empty
@@ -555,6 +558,15 @@ void CBaseVideoPlay::FillDataByPts(long long cur_clock, int idx, void *pData[THR
             break;
         }
     }
+    static long long pre = m_pSharedData->pts[idx][new_pre];
+    static int cc = 0;
+//    m_compress_pts = (m_pSharedData->pts[idx][new_pre] - pre) > m_compress_pts ? (m_pSharedData->pts[idx][new_pre] - pre) : m_compress_pts;
+//    printf("-------=================== get pts[%lld] =============\n", m_pSharedData->pts[idx][new_pre]);
+//    if (m_pSharedData->pts[idx][new_pre] - pre > 40) {
+//        printf("**************************** cc=%d *******************************\n", cc++);
+//    }
+    
+    pre = m_pSharedData->pts[idx][new_pre];
     
     pData[idx] = m_pSharedData->pData[idx][new_pre];
     width = m_pSharedData->nWidth[idx];
@@ -799,7 +811,7 @@ void CBaseVideoPlay::CompressRGB()
         pCodecCtx->bit_rate = 400000;
         // 设置图像组层的大小。
         // 图像组层是在 MPEG 编码器中存在的概念，图像组包 若干幅图像, 组头包 起始码、GOP 标志等,如视频磁带记录器时间、控制码、B 帧处理码等;
-        pCodecCtx->gop_size = 250;//12;//250;
+        pCodecCtx->gop_size = 250;
         // 设置 25 帧每秒 ，也就是 fps 为 25
         pCodecCtx->time_base = (AVRational){1, 50};
         pCodecCtx->framerate = (AVRational){25, 1};
@@ -910,6 +922,9 @@ void CBaseVideoPlay::CompressRGB()
         bool is_end;
         AVRational tmp_time_base = (AVRational){1, 1000};
         
+        static int icnt = 0;
+        static long long st = getCurrentTime();
+        
         while (1) {
             g_pThreadProductConsumerHelper->CompressBufferLock();
             head = pSharedData->head;
@@ -927,12 +942,6 @@ void CBaseVideoPlay::CompressRGB()
             
             // deal with data
             memcpy(pRGBBuf, pSharedData->img_data[head], nRGBSize);
-//            if (NULL == pRGBBuf) {
-//                printf("[CBaseVideoPlay::CompressRGB] warning: NULL == pRGBBuf.\n");
-//                g_pThreadProductConsumerHelper->CompressBufferUnlock();
-//                ++pSharedData->head;
-//                continue;
-//            }
             // 设置原始数据 AVFrame 的每一个frame 的图片大小，AVFrame 这里存储着 YUV 非压缩数据
             ret = av_image_fill_arrays(pSrcFrame->data, pSrcFrame->linesize, pRGBBuf, AV_PIX_FMT_RGB24, width, height, 1);
             if (ret < 0) {
@@ -954,9 +963,7 @@ void CBaseVideoPlay::CompressRGB()
             pFrame->height = height;
             // PTS
             // 设置这一帧的显示时间
-//            av_frame_get_best_effort_timestamp(<#const AVFrame *frame#>)
-            int cc = 40 * 1;
-            pFrame->pts = av_rescale_q(idx*cc, tmp_time_base, pCodecCtx->time_base);
+            pFrame->pts = av_rescale_q(pSharedData->pts, tmp_time_base, pCodecCtx->time_base);
             int got_pic = 0;
             // 利用编码器进行编码，将 pFrame 编码后的数据传入 pkt 中
             if (avcodec_encode_video2(pCodecCtx, &packet, pFrame, &got_pic) < 0) {
@@ -973,12 +980,15 @@ void CBaseVideoPlay::CompressRGB()
             
             packet.stream_index = video_st->index;
             av_packet_rescale_ts(&packet, pCodecCtx->time_base, video_st->time_base);
-            printf("-=- packet pts = %lld, dts = %lld, duration = %lld -=-=-=-=-=-=-=-=-\n", packet.pts, packet.dts, packet.duration);
+            printf("-=- packet pts = %lld, dts = %lld, duration = %lld, pSharedData->pts[%lld], frame pts[%lld] -=-=-=-=-=-=-=-=-\n", packet.pts, packet.dts, packet.duration, pSharedData->pts, pFrame->pts);
+            ++icnt;
+            
             ret = av_interleaved_write_frame(pFormatCtx, &packet);
             if (ret < 0) {
                 av_log(NULL, AV_LOG_ERROR, "Write packet error!\n");
-                exit(1);
+//                exit(1);
             }
+        
             // free image data
             free(pSharedData->img_data[head]);
             pSharedData->img_data[head] = NULL;
@@ -1018,6 +1028,7 @@ void CBaseVideoPlay::CompressRGB()
         
         // 写入数据流尾部到输出文件当中，并释放文件的私有数据
         av_write_trailer(pFormatCtx);
+        printf("-=-=-=-=-=-=-=-+#_+#_+_+#_+#_+# record cnt [%d] use time[%lld] idx[%d] -=-=-=-=\n", icnt, getCurrentTime()-st, idx);
         
         if (NULL != video_st) {
             // 关闭编码器

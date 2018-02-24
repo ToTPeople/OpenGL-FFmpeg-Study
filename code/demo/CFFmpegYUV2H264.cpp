@@ -2,8 +2,8 @@
 //  CFFmpegYUV2H264.cpp
 //  OpenGL_Product
 //
-//  Created by meitu on 2018/1/31.
-//  Copyright © 2018年 meitu. All rights reserved.
+//  Created by lifushan on 2018/1/31.
+//  Copyright © 2018年 lifs. All rights reserved.
 //
 
 #include "CFFmpegYUV2H264.hpp"
