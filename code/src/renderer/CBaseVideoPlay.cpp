@@ -25,6 +25,10 @@ extern "C"
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
+#include <libavfilter/avfiltergraph.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
+#include <libavutil/opt.h>
 #ifdef __cplusplus
 };
 #endif
@@ -44,9 +48,12 @@ namespace
     const int g_nMaxImageWidth = 2048;
     const int g_nMaxImageHeight = 1536;
     
+    const char *filter_descr = "movie=./picture/my_logo.png[wm];[in][wm]overlay=5:5[out]";
+    
 //#define DECODE_LOG                          // 解码队列打印调试信息
 //#define DECODE_TIMESTAMP_LOG                // 解码时间戳调试
 //#define ENCODE_QUEUE_LOG                    // 压缩队列打印调试信息
+#define FILTER_TEST
 }
 
 CBaseVideoPlay::CBaseVideoPlay(int eOpType, const std::string& strVideoPath)
@@ -77,6 +84,67 @@ static long long getCurrentTime()
     gettimeofday(&tv, NULL);
     long long ms = tv.tv_sec;
     return ms * 1000 + tv.tv_usec / 1000;
+}
+
+static int init_filters(const char *filters_descr, AVCodecContext *pCodecCtx, AVFilterGraph **filter_graph, AVFilterContext **buffersrc_ctx, AVFilterContext **buffersink_ctx)
+{
+    char args[512];
+    int ret;
+    AVFilter *buffersrc  = avfilter_get_by_name("buffer");
+    AVFilter *buffersink = avfilter_get_by_name("buffersink");
+    AVFilterInOut *outputs = avfilter_inout_alloc();
+    AVFilterInOut *inputs  = avfilter_inout_alloc();
+    enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE };
+    AVBufferSinkParams *buffersink_params;
+    
+    *filter_graph = avfilter_graph_alloc();
+    
+    /* buffer video source: the decoded frames from the decoder will be inserted here. */
+    snprintf(args, sizeof(args), "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d"
+             , pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt
+             , pCodecCtx->time_base.num, pCodecCtx->time_base.den
+             , pCodecCtx->sample_aspect_ratio.num, pCodecCtx->sample_aspect_ratio.den);
+    
+    printf("=========================== args[%s] ==============\n\n", args);
+    
+    ret = avfilter_graph_create_filter(buffersrc_ctx, buffersrc, "in", args, NULL, *filter_graph);
+    if (ret < 0) {
+        printf("Cannot create buffer source\n");
+        return ret;
+    }
+    
+    /* buffer video sink: to terminate the filter chain. */
+    buffersink_params = av_buffersink_params_alloc();
+    buffersink_params->pixel_fmts = pix_fmts;
+    ret = avfilter_graph_create_filter(buffersink_ctx, buffersink, "out", NULL, buffersink_params, *filter_graph);
+    av_free(buffersink_params);
+    if (ret < 0) {
+        printf("Cannot create buffer sink\n");
+        return ret;
+    }
+    
+    /* Endpoints for the filter graph. */
+    outputs->name       = av_strdup("in");
+    outputs->filter_ctx = *buffersrc_ctx;
+    outputs->pad_idx    = 0;
+    outputs->next       = NULL;
+    
+    inputs->name       = av_strdup("out");
+    inputs->filter_ctx = *buffersink_ctx;
+    inputs->pad_idx    = 0;
+    inputs->next       = NULL;
+    
+    if ((ret = avfilter_graph_parse_ptr(*filter_graph, filters_descr, &inputs, &outputs, NULL)) < 0) {
+        exit(1);
+    }
+    
+    if ((ret = avfilter_graph_config(*filter_graph, NULL)) < 0) {
+        exit(1);
+    }
+    
+    avfilter_inout_free(&inputs);
+    avfilter_inout_free(&outputs);
+    return 0;
 }
 
 static void AddData2Queue(CBaseVideoPlay::SharedData_s *pShareData, uint8_t* pRGBData, AVCodecContext* pCodecCtx, int nRGBSize, int thread_idx, int queue_max, int idx, long long cur_frame_pts)
@@ -137,48 +205,40 @@ void CBaseVideoPlay::Play(const char* filename, int* cur_thread_cnt, int thread_
     AVCodecContext* pCodecCtx;          // 解码内容
     AVCodec*        pCodec;             // 解码器
     
-    if (thread_idx >= THREAD_MAX_COUNT)
-    {
+    if (thread_idx >= THREAD_MAX_COUNT) {
         printf("[CBaseVideoPlay::Play] error: thread max count is 5, the index is %d.\n", thread_idx);
         return;
     }
     
-    if (NULL == filename || NULL == cur_thread_cnt)
-    {
+    if (NULL == filename || NULL == cur_thread_cnt) {
         printf("[CBaseVideoPlay::Play] error: param invalid, filename[%p], cur_thread_cnt[%p].\n", filename, cur_thread_cnt);
         return;
     }
     
     pFmtContext = avformat_alloc_context();
-    if (NULL == pFmtContext)
-    {
+    if (NULL == pFmtContext) {
         printf("[CBaseVideoPlay::Play] error: alloc AVFormatContext failed.\n");
         exit(1);
     }
     
     // 打开文件，获取mux
-    if (0 != avformat_open_input(&pFmtContext, filename, NULL, NULL))
-    {
+    if (0 != avformat_open_input(&pFmtContext, filename, NULL, NULL)) {
         printf("[CBaseVideoPlay::Play] error: avformat_open_input failed.\n");
         exit(1);
     }
     // 获取流信息
-    if (0 > avformat_find_stream_info(pFmtContext, NULL))
-    {
+    if (0 > avformat_find_stream_info(pFmtContext, NULL)) {
         printf("[CBaseVideoPlay::Play] error: avformat_find_stream_info failed.\n");
         exit(1);
     }
     // 判断是否是视频
-    for (idx = 0; idx < pFmtContext->nb_streams; ++idx)
-    {
-        if (AVMEDIA_TYPE_VIDEO == pFmtContext->streams[idx]->codec->codec_type)
-        {
+    for (idx = 0; idx < pFmtContext->nb_streams; ++idx) {
+        if (AVMEDIA_TYPE_VIDEO == pFmtContext->streams[idx]->codec->codec_type) {
             nVideoStreamIdx = idx;
             break;
         }
     }
-    if (-1 == nVideoStreamIdx)
-    {
+    if (-1 == nVideoStreamIdx) {
         printf("[CBaseVideoPlay::Play] error: not a video file.\n");
         exit(1);
     }
@@ -187,8 +247,7 @@ void CBaseVideoPlay::Play(const char* filename, int* cur_thread_cnt, int thread_
     pCodecCtx = pFmtContext->streams[nVideoStreamIdx]->codec;
     
     pCodec = avcodec_find_decoder(pCodecCtx->codec_id);
-    if (0 != avcodec_open2(pCodecCtx, pCodec, NULL))
-    {
+    if (0 != avcodec_open2(pCodecCtx, pCodec, NULL)) {
         printf("[CBaseVideoPlay::Play] error: avcodec_open2 failed.\n");
         exit(1);
     }
@@ -198,62 +257,72 @@ void CBaseVideoPlay::Play(const char* filename, int* cur_thread_cnt, int thread_
     SwsContext* pSwsCtx;
     enum AVPixelFormat nFormat = AV_PIX_FMT_RGB24;
     int nPicSize;
-    if (NULL == pFrame || NULL == pFrameRGB)
-    {
+    if (NULL == pFrame || NULL == pFrameRGB) {
         printf("[CBaseVideoPlay::Play] error: av_frame_alloc failed.\n");
         exit(1);
     }
     
     nPicSize = av_image_get_buffer_size(nFormat, pCodecCtx->width, pCodecCtx->height, 1);
     uint8_t *buf = (uint8_t*)av_malloc(nPicSize);
-    if (NULL == buf)
-    {
+    if (NULL == buf) {
         printf("[CBaseVideoPlay::Play] error: av_malloc failed.\n");
         exit(1);
     }
     
     pSwsCtx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, nFormat, SWS_BICUBIC, NULL, NULL, NULL);
-    if (NULL == pSwsCtx)
-    {
+    if (NULL == pSwsCtx) {
         printf("[CBaseVideoPlay::Play] error: sws_getContext failed.\n");
         exit(1);
     }
     
-    if (0 > av_image_fill_arrays(pFrameRGB->data, pFrameRGB->linesize, buf, nFormat, pCodecCtx->width, pCodecCtx->height, 1))
-    {
+    if (0 > av_image_fill_arrays(pFrameRGB->data, pFrameRGB->linesize, buf, nFormat, pCodecCtx->width, pCodecCtx->height, 1)) {
         printf("[CBaseVideoPlay::Play] error: av_image_fill_arrays failed.\n");
         exit(1);
     }
     
+#ifdef FILTER_TEST
+    AVFrame *pFinalFrame = av_frame_alloc();
+    if (NULL == pFrame || NULL == pFinalFrame) {
+        printf("[CBaseVideoPlay::Play] error: av_frame_alloc 3 failed.\n");
+        exit(1);
+    }
+    if (0 > av_image_fill_arrays(pFinalFrame->data, pFinalFrame->linesize, buf, nFormat, pCodecCtx->width, pCodecCtx->height, 1)) {
+        printf("[CBaseVideoPlay::Play] error: av_image_fill_arrays 3 failed.\n");
+        exit(1);
+    }
+#endif
+    
     // 共享内存
     int shmid;
     shmid = open(kszSharedFilePath, O_RDWR, 0);
-    if (-1 == shmid)
-    {
+    if (-1 == shmid) {
         printf("[CBaseVideoPlay::Play] error: shm_open failed.\n");
         exit(1);
     }
     struct stat stat_buf;
-    if (-1 == fstat(shmid, &stat_buf))
-    {
+    if (-1 == fstat(shmid, &stat_buf)) {
         printf("[CBaseVideoPlay::Play] error: fstat failed.\n");
         exit(1);
     }
     SharedData_s *pShareData;
     pShareData = (SharedData_s*)mmap(NULL, stat_buf.st_size, PROT_WRITE, MAP_SHARED, shmid, 0);
-    if (MAP_FAILED == pShareData)
-    {
+    if (MAP_FAILED == pShareData) {
         printf("[CBaseVideoPlay::Play] error: mmap failed.\n");
         exit(1);
     }
     
     idx = 0;
     AVPacket packet;
-    AVRational tmp_time_base;
-    tmp_time_base.num = 1;
-    tmp_time_base.den = 1000;
-    
-    long long cur_frame_pts, cur_frame_duration;
+    AVRational tmp_time_base = (AVRational){1, 1000};
+#ifdef FILTER_TEST
+    AVFilterGraph *filter_graph;
+    AVFilterContext *buffersrc_ctx;
+    AVFilterContext *buffersink_ctx;
+    if (init_filters(filter_descr, pCodecCtx, &filter_graph, &buffersrc_ctx, &buffersink_ctx) < 0) {
+        printf("[CBaseVideoPlay::Play] error: init_filters failed.\n");
+        exit(1);
+    }
+#endif
     
     while (av_read_frame(pFmtContext, &packet) >= 0) {
         if (nVideoStreamIdx == packet.stream_index) {
@@ -261,12 +330,53 @@ void CBaseVideoPlay::Play(const char* filename, int* cur_thread_cnt, int thread_
             nResult += avcodec_receive_frame(pCodecCtx, pFrame);
             if (0 == nResult) {
                 // 播放时间转换 demux -> decode -> raw
-                cur_frame_pts = av_rescale_q_rnd(pFrame->pts, pFmtContext->streams[nVideoStreamIdx]->time_base, pCodecCtx->time_base, AV_ROUND_INF);
+                long long cur_frame_pts = av_rescale_q_rnd(pFrame->pts, pFmtContext->streams[nVideoStreamIdx]->time_base, pCodecCtx->time_base, AV_ROUND_INF);
                 cur_frame_pts = av_rescale_q_rnd(cur_frame_pts, pCodecCtx->time_base, tmp_time_base, AV_ROUND_INF);
+                pFrame->pts = cur_frame_pts;
+                
+#ifdef FILTER_TEST
+                /* push the decoded frame into the filtergraph */
+                if (av_buffersrc_add_frame(buffersrc_ctx, pFrame) < 0) {
+                    printf( "[CBaseVideoPlay::Play] error: while feeding the filtergraph\n");
+                    break;
+                }
+#endif
                 
 #ifdef DECODE_TIMESTAMP_LOG
                 printf("$$$$$$$$$ idx[%d], framePTS[%ld], pkt_duration[%lld], cur_frame_pts[%lld]\n", idx, pFrame->pts, pFrame->pkt_duration, cur_frame_pts);
 #endif
+                
+#ifdef FILTER_TEST
+                /* pull filtered pictures from the filtergraph */
+                int nCnt = 0;
+                while (1) {
+                    int ret = av_buffersink_get_frame(buffersink_ctx, pFrameRGB);
+                    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                        break;
+                    }
+                    if (ret < 0) {
+                        printf( "[CBaseVideoPlay::Play] error: av_buffersink_get_frame failed\n");
+                        exit(1);
+                    }
+                    ++nCnt;
+//                    printf("[CBaseVideoPlay::Play] info: pts = %lldd \n", pFrameRGB->pts);
+                    
+                    // 反转图像 ，否则生成的图像是上下调到的
+                    pFrameRGB->data[0] += pFrameRGB->linesize[0] * (pCodecCtx->height - 1);
+                    pFrameRGB->linesize[0] *= -1;
+                    pFrameRGB->data[1] += pFrameRGB->linesize[1] * (pCodecCtx->height / 2 - 1);
+                    pFrameRGB->linesize[1] *= -1;
+                    pFrameRGB->data[2] += pFrameRGB->linesize[2] * (pCodecCtx->height / 2 - 1);
+                    pFrameRGB->linesize[2] *= -1;
+                    
+                    sws_scale(pSwsCtx, pFrameRGB->data, pFrameRGB->linesize, 0, pCodecCtx->height, pFinalFrame->data, pFinalFrame->linesize);
+                    AddData2Queue(pShareData, pFinalFrame->data[0], pCodecCtx, nPicSize, thread_idx, SHARED_DATA_QUEUE_COUNT, idx, cur_frame_pts);
+//                    AddData2Queue(pShareData, pFrameRGB->data[0], pCodecCtx, nPicSize, thread_idx, SHARED_DATA_QUEUE_COUNT, idx, cur_frame_pts);
+                    av_frame_unref(pFrameRGB);
+                }
+                
+                av_frame_unref(pFrame);
+#else
                 // 反转图像 ，否则生成的图像是上下调到的
                 pFrame->data[0] += pFrame->linesize[0] * (pCodecCtx->height - 1);
                 pFrame->linesize[0] *= -1;
@@ -286,15 +396,20 @@ void CBaseVideoPlay::Play(const char* filename, int* cur_thread_cnt, int thread_
                 sprintf(filename, "./bmp/%s_%d.bmp", "filename", idx);
                 
                 stbi_write_bmp(filename, pCodecCtx->width, pCodecCtx->height, 3, pFrameRGB->data[0]);
-#endif
+#endif // end 1
+#endif // end FILTER_TEST
                 
                 ++idx;
-//                    break;
             } // end if(0 == nResult)
             
             av_packet_unref(&packet);
         }
     } // end while (av_read_frame(pFmtContext, &packet) >= 0)
+    
+#ifdef FILTER_TEST
+    avfilter_graph_free(&filter_graph);
+    av_frame_free(&pFinalFrame);
+#endif
     
     // free
     sws_freeContext(pSwsCtx);
@@ -322,6 +437,7 @@ void CBaseVideoPlay::Run(const std::string& strTexture)
     if (!m_bInit) {
         av_register_all();
         avformat_network_init();
+        avfilter_register_all();
         // 打开队列数据共享内存
         m_shmid = open(kszSharedFilePath, O_CREAT | O_RDWR, 0666);
         if (-1 == m_shmid) {
@@ -828,9 +944,9 @@ void CBaseVideoPlay::CompressRGB()
         // 设置 B 帧最大的数量，B帧为视频图片空间的前后预测帧， B 帧相对于 I、P 帧来说，压缩率比较大，也就是说相同码率的情况下，
         // 越多 B 帧的视频，越清晰，现在很多打视频网站的高清视频，就是采用多编码 B 帧去提高清晰度，
         // 但同时对于编解码的复杂度比较高，比较消耗性能与时间
-        pCodecCtx->max_b_frames = 3;
+        pCodecCtx->max_b_frames = 0;//3;            ## 先压缩没有B帧的格式
         // 可选设置
-        AVDictionary* param = 0;
+        AVDictionary* param = NULL;
         if (AV_CODEC_ID_H264 == pCodecCtx->codec_id) {
             // 通过--preset的参数调节编码速度和质量的平衡。
             av_dict_set(&param, "preset", "slow", 0);
@@ -839,8 +955,6 @@ void CBaseVideoPlay::CompressRGB()
             av_dict_set(&param, "tune", "zerolatency", 0);
         }
         
-        
-//        avcodec_parameters_from_context(video_st->codecpar, pCodecCtx);
         // 通过 codec_id 找到对应的编码器
         AVCodec* pCodec;
         pCodec = avcodec_find_encoder(pCodecCtx->codec_id);
@@ -980,13 +1094,13 @@ void CBaseVideoPlay::CompressRGB()
             
             packet.stream_index = video_st->index;
             av_packet_rescale_ts(&packet, pCodecCtx->time_base, video_st->time_base);
-            printf("-=- packet pts = %lld, dts = %lld, duration = %lld, pSharedData->pts[%lld], frame pts[%lld] -=-=-=-=-=-=-=-=-\n", packet.pts, packet.dts, packet.duration, pSharedData->pts, pFrame->pts);
+            printf("-=- packet pts = %lld, dts = %lld, duration = %lld, pSharedData->pts[%lld], frame pts[%lld], frame_pic_type[%d] -=-=-=-=-=-=-=-=-\n", packet.pts, packet.dts, packet.duration, pSharedData->pts, pFrame->pts, pFrame->pict_type);
             ++icnt;
             
             ret = av_interleaved_write_frame(pFormatCtx, &packet);
             if (ret < 0) {
                 av_log(NULL, AV_LOG_ERROR, "Write packet error!\n");
-//                exit(1);
+                exit(1);
             }
         
             // free image data
