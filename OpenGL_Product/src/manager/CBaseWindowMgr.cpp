@@ -13,8 +13,7 @@ CBaseWindowMgr* CBaseWindowMgr::pInstance = NULL;
 
 CBaseWindowMgr* CBaseWindowMgr::GetInstance()
 {
-    if (NULL == pInstance)
-    {
+    if (NULL == pInstance) {
         pInstance = new CBaseWindowMgr();
     }
     

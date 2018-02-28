@@ -25,9 +25,9 @@ public:
     void SetImagePath(const std::string& strImagePath);
     void SetTarget(int eTarget);
     
-    
+    // 加载纹理
     virtual void LoadTexture(int nLoadType);
-    
+    // 更新纹理
     void UpdateTexture(const std::string &strPath);
     void UpdateTexture(const void * pData, int width, int height);
     
@@ -42,9 +42,9 @@ protected:
     unsigned int LoadDDS(const char * imagepath);
     
 protected:
-    std::string                 m_strImagePath;                 // 纹理图片路径
-    unsigned int                m_uHandleID;
-    unsigned int                m_uTarget;
+    std::string                 m_strImagePath;         // texture image path
+    unsigned int                m_uHandleID;            // texture object handle id
+    unsigned int                m_uTarget;              // texture target
     bool                        m_is_first_update;
 };
 

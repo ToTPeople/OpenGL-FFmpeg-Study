@@ -23,7 +23,9 @@ public:
     CBaseShape* GenShape(int eShapeType, int eDrawType, bool bVideoPlay = false);   // 第二个参数需要优化掉
     
 public:
+    // clear OpenGL default frame buffer
     void ClearBuffer();
+    // set OpenGl clear backgroud color
     void SetBgColor(float fRed, float fGreen, float fBlue, float fAlpha);
     void Init();
     

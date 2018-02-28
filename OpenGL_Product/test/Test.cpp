@@ -36,8 +36,7 @@ void VideoTestInit(CBaseWindows& window);
 
 int OpenGLTest()
 {
-    if (!glfwInit())
-    {
+    if (!glfwInit()) {
         fprintf(stderr, "Failed to initialize GLFW.\n");
         return -1;
     }
@@ -46,8 +45,7 @@ int OpenGLTest()
     CBaseWindows window;
     window.SetWinTitle("OpenGL Test");
     window.SetWindowsAttr(GLFW_SAMPLES, 4);             // 4个采样数
-    if (NULL == window.CreateWindows())
-    {
+    if (NULL == window.CreateWindows()) {
         fprintf(stderr, "Create windows failed.\n");
         return -1;
     }
@@ -57,8 +55,7 @@ int OpenGLTest()
     window.SetInputMode(GLFW_STICKY_MOUSE_BUTTONS, GL_TRUE);
     
     // 放在创建windows并设置current context后
-    if (glewInit() != GLEW_OK)
-    {
+    if (glewInit() != GLEW_OK) {
         fprintf(stderr, "Failed to initialize GLEW.\n");
         return -1;
     }
@@ -88,38 +85,33 @@ void ShapeInit(CBaseWindows& window)
 #if 0
     pShape = g_pShapeManager->GenShape(SHAPE_TYPE_TRIANGLE, RENDERER_TYPE_SQUARE);    // 方形
     
-    if (NULL != pShape)
-    {
+    if (NULL != pShape) {
         window.AddShape(pShape);
     }
 #endif
 #if 1
     pShape = g_pShapeManager->GenShape(SHAPE_TYPE_TRIANGLE, RENDERER_TYPE_CUBE);    // 立方体
-    if (NULL != pShape)
-    {
+    if (NULL != pShape) {
         window.AddShape(pShape);
     }
 #endif
 #if 1
     pShape = g_pShapeManager->GenShape(SHAPE_TYPE_TRIANGLE, RENDERER_TYPE_SQUARE);    // 方形
     
-    if (NULL != pShape)
-    {
+    if (NULL != pShape) {
         window.AddShape(pShape);
     }
 #endif
 #if 0
     pShape = g_pShapeManager->GenShape(SHAPE_TYPE_TRIANGLE, RENDERER_TYPE_CUBE);    // 立方体
-    if (NULL != pShape)
-    {
+    if (NULL != pShape) {
         window.AddShape(pShape);
     }
 #endif
 #if 0
     pShape = g_pShapeManager->GenShape(SHAPE_TYPE_SCREEN, RENDERER_TYPE_SCREEN);    // screen
     
-    if (NULL != pShape)
-    {
+    if (NULL != pShape) {
         window.AddShape(pShape);
     }
 #endif
@@ -132,22 +124,19 @@ void FBOTestInit(CBaseWindows& window)
 #ifdef TEST_FBO
     // target shape
     CScreenShape* pTargetShape = (CScreenShape*)g_pShapeManager->GenShape(SHAPE_TYPE_SCREEN, RENDERER_TYPE_SCREEN);// screen
-    if (NULL != pTargetShape)
-    {
+    if (NULL != pTargetShape) {
         window.BindTargetShape(pTargetShape);
     }
     
     // fbo
     CBaseFrameBufferObj* pFBO = new CBaseFrameBufferObj(window.GetWinWidth(), window.GetWinHeight(), true, true);
-    if (NULL != pFBO)
-    {
+    if (NULL != pFBO) {
         window.BindFrameBufferObj(pFBO);
     }
     
     // target shape bind texture
     CBaseTexture* pTexture = new CBaseTexture();
-    if (NULL != pTexture && NULL != pFBO && NULL != pTargetShape)
-    {
+    if (NULL != pTexture && NULL != pFBO && NULL != pTargetShape) {
         pTexture->SetHandleID(pFBO->GetTexureID());
         pTargetShape->SetTexture(pTexture);
     }
@@ -167,8 +156,7 @@ void VideoTestInit(CBaseWindows& window)
                        //, "./video/100.mp4"
                        //, "./video/screenst1.mp4"
                        );
-    if (NULL == pVideoPlay)
-    {
+    if (NULL == pVideoPlay) {
         return;
     }
     

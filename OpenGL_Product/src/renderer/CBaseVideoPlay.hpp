@@ -24,15 +24,13 @@ typedef void (*FuncVideoCB)(void *pData[], int *width, int *height, const std::s
 class CBaseVideoPlay
 {
 public:
-    enum
-    {
+    enum {
         THREAD_MAX_COUNT = 5,                   // 子线程个数
         SHARED_DATA_QUEUE_COUNT = 10,           // 视频解析共享内存各个线程数据保存个数
         COMPRESS_SHARED_DATA_QUEUE_CAP = 30,    // 压缩共享内存数据队列保存个数
     };
     // 视频解析共享内存数据结构
-    struct SharedData_s
-    {
+    struct SharedData_s {
         int nWidth[THREAD_MAX_COUNT];                                   // decode image width
         int nHeight[THREAD_MAX_COUNT];                                  // decode image height
         int pre[THREAD_MAX_COUNT];                                      // the head of queue
@@ -42,8 +40,7 @@ public:
         void* pData[THREAD_MAX_COUNT][SHARED_DATA_QUEUE_COUNT];         // decode data
     };
     // 截屏压缩共享内存数据结构
-    struct CompressSharedData_s
-    {
+    struct CompressSharedData_s {
         int width;                                                      // image width
         int height;                                                     // image height
         bool is_end;                                                    // is last image to compress
@@ -61,12 +58,12 @@ public:
     
     // 解析视频接口
     virtual void Run(const std::string& strTexture);
-    // 压缩数据为视频文件
+    // 压缩RGB数据为视频文件
     void Record(uint8_t* pImgData, int nWidth, int nHeight, bool bEnd);
     
     // 保存为bmp操作时，设置保存路径
     void SetSavePath(const std::string& strSavePath);
-    // 播放时，设置回调函数
+    // 解析时，设置解析数据后回调函数
     void SetVideoCbFunc(FuncVideoCB pFuncVideoCB);
     // 已创建线程个数
     int GetCreateThreadCnt();
@@ -79,7 +76,7 @@ protected:
     
     // 根据pts从队列中取数据
     void FillDataByPts(long long cur_clock, int idx, void* pData[THREAD_MAX_COUNT], std::string& strTexture, int& width, int& height, bool& bPreFull);
-    // 发送队列数据，更新绘制
+    // 发送解析队列数据，更新绘制
     bool SendData(long long cur_clock);
     
     // 启动子线程解析视频数据
@@ -106,7 +103,7 @@ private:
     bool            m_is_recording;
     int             idx;                // 第几段RGB图片进行视频压缩
     int             m_compress_shmid;   // 压缩共享内存文件描述符
-    long long       m_compress_pts;
+    long long       m_compress_pts;     // 压缩pts
     CompressSharedData_s    *m_pCompressSharedData;
     // 子线程压缩相关 end
 };

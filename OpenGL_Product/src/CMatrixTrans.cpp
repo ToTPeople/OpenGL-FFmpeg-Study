@@ -15,6 +15,11 @@
 #include "common_define.h"
 #include "commonfun.hpp"
 
+namespace {
+    const int g_usleep_time = 500;
+//#define MATRIX_LOG
+}
+
 CMatrixTrans::CMatrixTrans()
 : m_fHorizontalAngle(3.14f)
 , m_fVerticalAngle(0.0f)
@@ -47,25 +52,25 @@ CMatrixTrans::CMatrixTrans()
     
     m_vec3_up = glm::cross(m_vec3_right, m_vec3_direction);
     
-    for (int i = 0; i < 4; ++i)
-    {
-        for (int j = 0; j < 4; ++j)
-        {
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
             if (i == j) m_arr_mvp[i*4 + j] = 1.0 / m_fScaleRatio;
             else m_arr_mvp[i*4 + j] = 0.0;
             
             m_arr_mvp[15] = 1.0;
-            
+#ifdef MATRIX_LOG
             printf("%f ", m_arr_mvp[i*4 + j]);
         }
         printf("\n");
+#else
+        }
+#endif
     }
 }
 
 CMatrixTrans::~CMatrixTrans()
 {
-    fprintf(stdout, "$$$$$$$$$$$$$$$$$$\n");
-    printf("[CMatrixTrans::~CMatrixTrans()] \n");
+    printf("[CMatrixTrans::~CMatrixTrans] \n");
 }
 
 void CMatrixTrans::SetHorizontalAngle(float fHorizontalAngle)
@@ -90,7 +95,6 @@ void CMatrixTrans::SetCenterPosY(float fCenterPosY)
 
 void CMatrixTrans::SetPosMove(float fPosX, float fPosY)
 {
-    //printf("[CMatrixTrans::SetPosMove] tmpPosX[%f], tmpPosY[%f], fX[%f], fY[%f]\n", m_fTmpPosMoveX, m_fTmpPosMoveY, fPosX - m_fCenterPosX, fPosY - m_fCenterPosY);
     m_fTmpPosMoveX += fPosX - m_fCenterPosX;
     m_fTmpPosMoveY += fPosY - m_fCenterPosY;
 }
@@ -176,26 +180,22 @@ glm::mat4 CMatrixTrans::GetMVPMatrix()
 void CMatrixTrans::UpdatePositionByArrowKey(int eArrowKey, float fDeltaTime)
 {
     // Move forward
-    if (ARROW_KEY_TYPE_UP == eArrowKey)
-    {
+    if (ARROW_KEY_TYPE_UP == eArrowKey) {
         m_vec3_position += m_vec3_direction * fDeltaTime * m_fSpeed;
     }
     
     // Move backward
-    if (ARROW_KEY_TYPE_DOWN == eArrowKey)
-    {
+    if (ARROW_KEY_TYPE_DOWN == eArrowKey) {
         m_vec3_position -= m_vec3_direction * fDeltaTime * m_fSpeed;
     }
     
     // Strafe right
-    if (ARROW_KEY_TYPE_RIGHT == eArrowKey)
-    {
+    if (ARROW_KEY_TYPE_RIGHT == eArrowKey) {
         m_vec3_position += m_vec3_right * fDeltaTime * m_fSpeed;
     }
     
     // Strafe left
-    if (ARROW_KEY_TYPE_LEFT == eArrowKey)
-    {
+    if (ARROW_KEY_TYPE_LEFT == eArrowKey) {
         m_vec3_position -= m_vec3_right * fDeltaTime * m_fSpeed;
     }
 }
@@ -244,16 +244,17 @@ void CMatrixTrans::ScaleMatrix()
     // 设置矩阵 缩放比例
     m_arr_mvp[0] = m_arr_mvp[5] = m_arr_mvp[10] = 1.0 / m_fScaleRatio;
     
-    if (bSleep)
-    {
-        usleep(500);
+    if (bSleep) {
+        usleep(g_usleep_time);
     }
 }
 
 void CMatrixTrans::UpdateTransMatrix(float fXPos, float fYPos)
 {
+#ifdef MATRIX_LOG
     //printf("[CMatrixTrans::UpdateTransMatrix] arr12[%f], arr13[%f], tmpPosX[%f], tmpPosY[%f], fX[%f], fY[%f]\n"
       //     , m_arr_mvp[12], m_arr_mvp[13], m_fTmpPosMoveX, m_fTmpPosMoveY, fXPos, fYPos);
+#endif
     // 设置矩阵x、y轴平移量
     m_arr_mvp[12] = m_fTmpPosMoveX + fXPos;
     m_arr_mvp[13] = m_fTmpPosMoveY + fYPos;

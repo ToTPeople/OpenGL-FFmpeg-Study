@@ -36,8 +36,7 @@ extern "C"
 #include "CShaderMgr.hpp"
 #include "CBaseTexture.hpp"
 
-namespace
-{
+namespace {
     static const GLfloat g_vertex_buffer_data[] = {
         // 缩小左、右、下
         -0.7f, 1.0f, 0.0f,
@@ -84,8 +83,7 @@ namespace
 CFFmpegVideoPlay* CFFmpegVideoPlay::m_pInstance = NULL;
 CFFmpegVideoPlay* CFFmpegVideoPlay::GetInstance()
 {
-    if (NULL == m_pInstance)
-    {
+    if (NULL == m_pInstance) {
         m_pInstance = new CFFmpegVideoPlay();
     }
     
@@ -100,8 +98,7 @@ CFFmpegVideoPlay::CFFmpegVideoPlay()
 
 CFFmpegVideoPlay::~CFFmpegVideoPlay()
 {
-    if (m_bInited)
-    {
+    if (m_bInited) {
         m_bInited = false;
         
         glDeleteBuffers(1, &vtxBuffer);
@@ -121,15 +118,13 @@ void CFFmpegVideoPlay::SetVideoFilePath(const std::string &strVideoFilePath)
 
 int CFFmpegVideoPlay::InitWindow()
 {
-    if (m_bInited)
-    {
+    if (m_bInited) {
         printf("[CFFmpegVideoPlay::InitWindow()] warning: has initialize before, do not need init again.\n");
         return 0;
     }
     
     m_bInited = true;
-    if (!glfwInit())
-    {
+    if (!glfwInit()) {
         printf("Failed to initialize GLFW.\n");
         return -1;
     }
@@ -137,8 +132,7 @@ int CFFmpegVideoPlay::InitWindow()
     // 创建窗口并初始化
     m_window.SetWinTitle("OpenGL Test");
     m_window.SetWindowsAttr(GLFW_SAMPLES, 4);             // 4个采样数
-    if (NULL == m_window.CreateWindows())
-    {
+    if (NULL == m_window.CreateWindows()) {
         printf("Create windows failed.\n");
         return -1;
     }
@@ -148,8 +142,7 @@ int CFFmpegVideoPlay::InitWindow()
     m_window.SetInputMode(GLFW_STICKY_MOUSE_BUTTONS, GL_TRUE);
     
     // 放在创建windows并设置current context后
-    if (glewInit() != GLEW_OK)
-    {
+    if (glewInit() != GLEW_OK) {
         printf("Failed to initialize GLEW.\n");
         return -1;
     }
@@ -170,8 +163,7 @@ int CFFmpegVideoPlay::InitWindow()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(g_index_vertex_data), g_index_vertex_data, GL_STATIC_DRAW);
     
     m_pShader = new CShader();
-    if (NULL == m_pShader)
-    {
+    if (NULL == m_pShader) {
         printf("[CFFmpegVideoPlay::InitWindow()] error: create shader failed.\n");
         return -1;
     }
@@ -184,8 +176,7 @@ int CFFmpegVideoPlay::InitWindow()
     uvPos = m_pShader->GetAttribByString(SHADER_ATTR_GET_NORMAL, kszUVPos);
     
     m_pTexture = new CBaseTexture();
-    if (NULL == m_pTexture)
-    {
+    if (NULL == m_pTexture) {
         printf("[CFFmpegVideoPlay::InitWindow()] error: create texture failed.\n");
         return -1;
     }
@@ -199,14 +190,12 @@ int CFFmpegVideoPlay::InitWindow()
 
 void CFFmpegVideoPlay::Play()
 {
-    if (m_strVideoFile.empty())
-    {
+    if (m_strVideoFile.empty()) {
         printf("[CFFmpegVideoPlay::Play()] error: video file is empty! Please set before play.\n");
         return;
     }
     
-    if (!m_bInited && 0 != InitWindow())
-    {
+    if (!m_bInited && 0 != InitWindow()) {
         printf("[CFFmpegVideoPlay::Play()] error: initialize windows failed.\n");
         return;
     }
@@ -229,49 +218,42 @@ void CFFmpegVideoPlay::Play()
     //这里是分配一块内存，保存视频的属性信息
     pFormatCtx = avformat_alloc_context();
     //打开视频文件
-    if (avformat_open_input(&pFormatCtx, filename, NULL, NULL) != 0)
-    {
+    if (avformat_open_input(&pFormatCtx, filename, NULL, NULL) != 0) {
         printf ("av open input file failed!\n");
         exit (1);
     }
     //获取流信息
-    if (avformat_find_stream_info(pFormatCtx,NULL) < 0)
-    {
+    if (avformat_find_stream_info(pFormatCtx,NULL) < 0) {
         printf ("av find stream info failed!\n");
         exit (1);
     }
     //获取视频流
-    for (i = 0; i < pFormatCtx->nb_streams; ++i)
-    {
-        if (pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO)
-        {
+    for (i = 0; i < pFormatCtx->nb_streams; ++i) {
+        if (pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
             videoStream = i;
             break;
         }
     }
-    if (videoStream == -1)
-    {
+    if (videoStream == -1) {
         printf ("find video stream failed!\n");
         exit (1);
     }
     pCodecCtx = pFormatCtx->streams[videoStream]->codec;
     pCodec = avcodec_find_decoder(pCodecCtx->codec_id);         // 获取解码器
-    if (pCodec == NULL)
-    {
+    if (pCodec == NULL) {
         printf ("avcode find decoder failed!\n");
         exit (1);
     }
     //打开解码器
-    if (avcodec_open2(pCodecCtx, pCodec, NULL) < 0) // Initialize the AVCodecContext to use the given AVCodec.
-    {
+    // Initialize the AVCodecContext to use the given AVCodec.
+    if (avcodec_open2(pCodecCtx, pCodec, NULL) < 0) {
         printf ("avcode open failed!\n");
         exit (1);
     }
     //为每帧图像分配内存
     pFrame = av_frame_alloc();
     pFrameRGB = av_frame_alloc();
-    if ((pFrame == NULL) || (pFrameRGB == NULL))
-    {
+    if ((pFrame == NULL) || (pFrameRGB == NULL)) {
         printf("avcodec alloc frame failed!\n");
         exit (1);
     }
@@ -280,8 +262,7 @@ void CFFmpegVideoPlay::Play()
     // 计算长、宽，格式为nFormat，align为1的帧需要多少存储空间
     PictureSize =  av_image_get_buffer_size(nFormat, pCodecCtx->width, pCodecCtx->height, 1);
     buf = (uint8_t*)av_malloc(PictureSize);
-    if (NULL == buf)
-    {
+    if (NULL == buf) {
         printf( "av malloc failed!\n");
         exit(1);
     }
@@ -291,23 +272,19 @@ void CFFmpegVideoPlay::Play()
     pSwsCtx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, nFormat, SWS_BICUBIC, NULL, NULL, NULL);
     i = 0;
     // Return the next frame of a stream.
-    while(av_read_frame(pFormatCtx, &packet) >= 0)
-    {
+    while(av_read_frame(pFormatCtx, &packet) >= 0) {
         if (!(glfwWindowShouldClose(m_window.GetWindows()) == 0
-         && glfwGetKey(m_window.GetWindows(), GLFW_KEY_ESCAPE) != GLFW_PRESS))
-        {
+         && glfwGetKey(m_window.GetWindows(), GLFW_KEY_ESCAPE) != GLFW_PRESS)) {
             break;
         }
         
-        if(packet.stream_index==videoStream)
-        {
+        if(packet.stream_index==videoStream) {
             //真正解码
             //avcodec_decode_video2(pCodecCtx, pFrame, &frameFinished, &packet);
             //if(frameFinished)
             frameFinished = avcodec_send_packet(pCodecCtx, &packet);    // Supply raw packet data as input to a decoder.
             frameFinished = avcodec_receive_frame(pCodecCtx, pFrame);   // Return decoded output data from a decoder.
-            if (0 == frameFinished)
-            {
+            if (0 == frameFinished) {
                 //反转图像 ，否则生成的图像是上下调到的
                  pFrame->data[0] += pFrame->linesize[0] * (pCodecCtx->height - 1);
                  pFrame->linesize[0] *= -1;

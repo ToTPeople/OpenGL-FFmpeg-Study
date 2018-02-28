@@ -14,8 +14,7 @@ CShaderMgr* CShaderMgr::m_pInstance = NULL;
 
 CShaderMgr* CShaderMgr::GetInstance()
 {
-    if (NULL == m_pInstance)
-    {
+    if (NULL == m_pInstance) {
         m_pInstance = new CShaderMgr();
     }
     
@@ -24,17 +23,16 @@ CShaderMgr* CShaderMgr::GetInstance()
 
 bool CShaderMgr::AddShader(const std::string& strVtxPath, const std::string& strFragPath, CShader* pShader)
 {
-    if (NULL == pShader || strVtxPath.empty())
-    {
-        printf("[CShaderMgr::AddShader] pShader[%p], strVtxPath[%s], strFragPath[%s]\n"
+    if (NULL == pShader || strVtxPath.empty()) {
+        printf("[CShaderMgr::AddShader] error: pShader[%p], strVtxPath[%s], strFragPath[%s]\n"
                , pShader, strVtxPath.c_str(), strFragPath.c_str());
         return false;
     }
     
     std::string strTmp = strVtxPath + strFragPath;
-    if (m_mpShader.end() != m_mpShader.find(strTmp))
-    {
-        printf("[CShaderMgr::AddShader] strPath[%s] has exist.\n", strTmp.c_str());
+    if (m_mpShader.end() != m_mpShader.find(strTmp)) {
+        printf("[CShaderMgr::AddShader] warning: strPath[%s] has exist.\n", strTmp.c_str());
+        return false;
     }
     
     m_mpShader[strTmp] = pShader;
@@ -44,9 +42,8 @@ bool CShaderMgr::AddShader(const std::string& strVtxPath, const std::string& str
 CShader* CShaderMgr::GetShader(const std::string& strVtxPath, const std::string& strFragPath)
 {
     std::string strTmp = strVtxPath + strFragPath;
-    if (strTmp.empty() || m_mpShader.end() == m_mpShader.find(strTmp))
-    {
-        printf("[CShaderMgr::GetShader] path[%s] is empty, or not exist\n", strTmp.c_str());
+    if (strTmp.empty() || m_mpShader.end() == m_mpShader.find(strTmp)) {
+        printf("[CShaderMgr::GetShader] error: path[%s] is empty, or not exist\n", strTmp.c_str());
         return NULL;
     }
     

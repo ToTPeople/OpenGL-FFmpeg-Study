@@ -14,8 +14,7 @@ CDataObjMgr* CDataObjMgr::m_pInstance = NULL;
 
 CDataObjMgr* CDataObjMgr::GetInstance()
 {
-    if (NULL == m_pInstance)
-    {
+    if (NULL == m_pInstance) {
         m_pInstance = new CDataObjMgr();
     }
     
@@ -24,14 +23,11 @@ CDataObjMgr* CDataObjMgr::GetInstance()
 
 bool CDataObjMgr::AddDataObj(const std::string& strPath, CDataObject* pDataObj)
 {
-    if (NULL == pDataObj || strPath.empty())
-    {
-        printf("[CDataObjMgr::AddDataObj] pDataObj[%p], strPath[%s]\n", pDataObj, strPath.c_str());
+    if (NULL == pDataObj || strPath.empty()) {
+        printf("[CDataObjMgr::AddDataObj] error: pDataObj[%p], strPath[%s]\n", pDataObj, strPath.c_str());
         return false;
-    }
-    else if (m_mpDataObj.end() != m_mpDataObj.find(strPath))
-    {
-        printf("[CDataObjMgr::AddDataObj] strPath[%s] has exist.\n", strPath.c_str());
+    } else if (m_mpDataObj.end() != m_mpDataObj.find(strPath)) {
+        printf("[CDataObjMgr::AddDataObj] warning: strPath[%s] has exist.\n", strPath.c_str());
         return false;
     }
     
@@ -41,9 +37,8 @@ bool CDataObjMgr::AddDataObj(const std::string& strPath, CDataObject* pDataObj)
 
 CDataObject* CDataObjMgr::GetDataObj(const std::string& strPath)
 {
-    if (strPath.empty() || m_mpDataObj.end() == m_mpDataObj.find(strPath))
-    {
-        printf("[CDataObjMgr::GetDataObj] path[%s] is empty, or not exist\n", strPath.c_str());
+    if (strPath.empty() || m_mpDataObj.end() == m_mpDataObj.find(strPath)) {
+        printf("[CDataObjMgr::GetDataObj] warning: path[%s] is empty, or not exist\n", strPath.c_str());
         return NULL;
     }
     

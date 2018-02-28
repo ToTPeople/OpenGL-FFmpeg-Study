@@ -27,14 +27,12 @@ CDataObject::~CDataObject()
 
 void CDataObject::LoadData()
 {
-    if (m_strDataFilePath.empty())
-    {
-        printf("[CDataObject::InitData()] data path is empty, please set path first.\n");
+    if (m_strDataFilePath.empty()) {
+        printf("[CDataObject::LoadData] error: data path is empty, please set path first.\n");
         return;
     }
     
-    if (m_bUseIndex)
-    {
+    if (m_bUseIndex) {
         std::vector<glm::vec3>  vecTmpVtxs;
         std::vector<glm::vec2>  vecTmpUvs;
         std::vector<glm::vec3>  vecTmpNormal;
@@ -45,20 +43,18 @@ void CDataObject::LoadData()
         m_bInit = LoadDataByFile(m_strDataFilePath.c_str(), vecTmpVtxs, vecTmpUvs, vecTmpNormal, m_bDDS);
         GenIndexVBO(vecTmpVtxs, vecTmpUvs, vecTmpNormal, m_vec_indices, m_vec_vtxs, m_vec_uvs, m_vec_normal);
         
-        printf("[] Size: vecTmpVtxs[%d], vecTmpUvs[%d], vecTmpNormal[%d],, m_vec_indices[%d], m_vec_vtxs[%d], m_vec_uvs[%d], m_vec_normal[%d] \n"
+        printf("[CDataObject::LoadData] info: Size: vecTmpVtxs[%d], vecTmpUvs[%d], vecTmpNormal[%d],, m_vec_indices[%d], m_vec_vtxs[%d], m_vec_uvs[%d], m_vec_normal[%d] \n"
                , vecTmpVtxs.size(), vecTmpUvs.size(), vecTmpNormal.size(), m_vec_indices.size()
                , m_vec_vtxs.size(), m_vec_uvs.size(), m_vec_normal.size());
-    }
-    else
-    {
+    } else {
         m_bInit = LoadDataByFile(m_strDataFilePath.c_str(), m_vec_vtxs, m_vec_uvs, m_vec_normal, m_bDDS);
     }
 }
 
 bool CDataObject::GetVertexsData(std::vector<glm::vec3> &vecVertexs)
 {
-    if (!m_bInit)
-    {
+    if (!m_bInit) {
+        printf("[CDataObject::GetVertexsData] error: don't init.\n");
         return false;
     }
     
@@ -69,8 +65,8 @@ bool CDataObject::GetVertexsData(std::vector<glm::vec3> &vecVertexs)
 
 bool CDataObject::GetUVsData(std::vector<glm::vec2> &vecUVs)
 {
-    if (!m_bInit)
-    {
+    if (!m_bInit) {
+        printf("[CDataObject::GetUVsData] error: don't init.\n");
         return false;
     }
     
@@ -81,8 +77,8 @@ bool CDataObject::GetUVsData(std::vector<glm::vec2> &vecUVs)
 
 bool CDataObject::GetNormalData(std::vector<glm::vec3> &vecNormal)
 {
-    if (!m_bInit)
-    {
+    if (!m_bInit) {
+        printf("[CDataObject::GetNormalData] error: don't init.\n");
         return false;
     }
     
@@ -93,15 +89,14 @@ bool CDataObject::GetNormalData(std::vector<glm::vec3> &vecNormal)
 
 bool CDataObject::GetIndices(std::vector<unsigned short> &vecIndices)
 {
-    if (!m_bInit || !m_bUseIndex)
-    {
+    if ( !m_bInit || !m_bUseIndex ) {
+        printf("[CDataObject::GetNormalData] error: don't init[%d] or not use index store[%d].\n", m_bInit, m_bUseIndex);
         return false;
     }
     
     vecIndices.clear();
     unsigned long nSize = m_vec_indices.size();
-    for (unsigned long i = 0; i < nSize; ++i)
-    {
+    for (unsigned long i = 0; i < nSize; ++i) {
         vecIndices.push_back(m_vec_indices[i]);
     }
     
@@ -173,12 +168,9 @@ bool CDataObject::GetSimilarVertexIndexFast(PackedVertex & packed
                                             , unsigned short & result)
 {
     std::map<PackedVertex,unsigned short>::iterator it = VertexToOutIndex.find(packed);
-    if ( it == VertexToOutIndex.end() )
-    {
+    if ( it == VertexToOutIndex.end() ) {
         return false;
-    }
-    else
-    {
+    } else {
         result = it->second;
         return true;
     }
@@ -195,21 +187,17 @@ void CDataObject::GenIndexVBO(std::vector<glm::vec3> &in_vertices
     std::map<PackedVertex,unsigned short> VertexToOutIndex;
     
     // For each input vertex
-    for ( unsigned int i=0; i<in_vertices.size(); i++ )
-    {
+    for ( unsigned int i = 0; i < in_vertices.size(); ++i ) {
         PackedVertex packed = {in_vertices[i], in_uvs[i]};
         
         // Try to find a similar vertex in out_XXXX
         unsigned short index;
         bool bFound = GetSimilarVertexIndexFast( packed, VertexToOutIndex, index);
         
-        if (bFound)
-        {
+        if (bFound) {
             // A similar vertex is already in the VBO, use it instead !
             out_indices.push_back( index );
-        }
-        else
-        {
+        } else {
             // If not, it needs to be added in the output data.
             out_vertices.push_back( in_vertices[i]);
             out_uvs     .push_back( in_uvs[i]);
@@ -218,6 +206,6 @@ void CDataObject::GenIndexVBO(std::vector<glm::vec3> &in_vertices
             out_indices .push_back( newindex );
             VertexToOutIndex[ packed ] = newindex;
         }
-    }
+    } // end for
 }
 

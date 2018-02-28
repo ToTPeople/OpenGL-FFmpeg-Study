@@ -25,18 +25,15 @@ CBaseFrameBufferObj::CBaseFrameBufferObj(int nWidth, int nHeight, bool bAttachRe
 
 CBaseFrameBufferObj::~CBaseFrameBufferObj()
 {
-    if (0 != m_uHandleID)
-    {
+    if (0 != m_uHandleID) {
         glDeleteFramebuffers(1, &m_uHandleID);
     }
     
-    if (0 != m_uTexColorBufferID)
-    {
+    if (0 != m_uTexColorBufferID) {
         glDeleteTextures(1, &m_uTexColorBufferID);
     }
     
-    if (0 != m_uRBO)
-    {
+    if (0 != m_uRBO) {
         glDeleteRenderbuffers(1, &m_uRBO);
     }
 }
@@ -53,9 +50,8 @@ unsigned int CBaseFrameBufferObj::GetTexureID()
 
 void CBaseFrameBufferObj::BindFBO(int nViewportWidth, int nViewportHeight)
 {
-    if (m_bBindFBO)
-    {
-        printf("[CBaseFrameBufferObj::BindFBO] warning: frame buffer object has bind, do not bind again!\n");
+    if (m_bBindFBO) {
+        printf("[CBaseFrameBufferObj::BindFBO] warning: frame buffer object has binded, do not bind again!\n");
         return;
     }
     
@@ -69,8 +65,7 @@ void CBaseFrameBufferObj::BindFBO(int nViewportWidth, int nViewportHeight)
 
 void CBaseFrameBufferObj::UnBindFBO()
 {
-    if (!m_bBindFBO)
-    {
+    if (!m_bBindFBO) {
         printf("[CBaseFrameBufferObj::UnBindFBO] warning: frame buffer object didn't binded, not need to unbind!\n");
         return;
     }
@@ -84,8 +79,7 @@ void CBaseFrameBufferObj::UnBindFBO()
 
 unsigned int CBaseFrameBufferObj::CreateFrameBufferObj(int nWidth, int nHeight)
 {
-    if (!m_bAttachRenderBuffer && !m_bAttachTexture)
-    {
+    if (!m_bAttachRenderBuffer && !m_bAttachTexture) {
         printf("[CBaseFrameBufferObj::CreateFrameBufferObj] error: frame buffer object must attach texture or render buffer, please check attribute first. m_bAttachRenderBuffer[%d], m_bAttachTexture[%d]\n", m_bAttachRenderBuffer, m_bAttachTexture);
         return 0;
     }
@@ -94,8 +88,7 @@ unsigned int CBaseFrameBufferObj::CreateFrameBufferObj(int nWidth, int nHeight)
     glBindFramebuffer(GL_FRAMEBUFFER, m_uHandleID);
     
     // texture、渲染缓冲
-    if (m_bAttachTexture)
-    {
+    if (m_bAttachTexture) {
         // texture
         glGenTextures(1, &m_uTexColorBufferID);
         glBindTexture(GL_TEXTURE_2D, m_uTexColorBufferID);
@@ -111,8 +104,7 @@ unsigned int CBaseFrameBufferObj::CreateFrameBufferObj(int nWidth, int nHeight)
     }
     
     // 渲染缓冲
-    if (m_bAttachRenderBuffer)
-    {
+    if (m_bAttachRenderBuffer) {
         glGenRenderbuffers(1, &m_uRBO);
         glBindRenderbuffer(GL_RENDERBUFFER, m_uRBO);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, nWidth, nHeight);
@@ -124,12 +116,11 @@ unsigned int CBaseFrameBufferObj::CreateFrameBufferObj(int nWidth, int nHeight)
     }
     
     // check
-    if (GL_FRAMEBUFFER_COMPLETE != glCheckFramebufferStatus(GL_FRAMEBUFFER))
-    {
+    if (GL_FRAMEBUFFER_COMPLETE != glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
         fprintf(stderr, "[CBaseFrameBufferObj::CreateFrameBufferObj] Framebuffer is not complete.\n");
         return 0;
     }
-    //
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     
     return m_uHandleID;

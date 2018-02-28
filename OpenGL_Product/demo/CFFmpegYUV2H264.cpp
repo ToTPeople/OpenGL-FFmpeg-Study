@@ -24,8 +24,7 @@ CFFmpegYUV2H264* CFFmpegYUV2H264::m_pInstance = NULL;
 
 CFFmpegYUV2H264* CFFmpegYUV2H264::GetInstance()
 {
-    if (NULL == m_pInstance)
-    {
+    if (NULL == m_pInstance) {
         m_pInstance = new CFFmpegYUV2H264();
     }
     
@@ -39,8 +38,7 @@ void CFFmpegYUV2H264::SetYUVFilePath(const std::string& strYUVFilePath)
 
 void CFFmpegYUV2H264::Run()
 {
-    if (m_strYUVFile.empty())
-    {
+    if (m_strYUVFile.empty()) {
         printf("[CFFmpegYUV2H264::Run] error: YUV file is empty.\n");
         exit(1);
     }
@@ -54,8 +52,7 @@ void CFFmpegYUV2H264::Run()
     // 用作之后写入视频帧并编码成 h264，贯穿整个工程当中
     AVFormatContext* pFormatCtx;
     pFormatCtx = avformat_alloc_context();
-    if (NULL == pFormatCtx)
-    {
+    if (NULL == pFormatCtx) {
         printf("[CFFmpegYUV2H264::Run] error: avformat_alloc_context failed.\n");
         fclose(in_file);
         exit(1);
@@ -72,8 +69,7 @@ void CFFmpegYUV2H264::Run()
 #endif
     
     // 打开文件的缓冲区输入输出，flags 标识为  AVIO_FLAG_READ_WRITE ，可读写
-    if (avio_open(&pFormatCtx->pb, out_file, AVIO_FLAG_READ_WRITE) < 0)
-    {
+    if (avio_open(&pFormatCtx->pb, out_file, AVIO_FLAG_READ_WRITE) < 0) {
         printf("[CFFmpegYUV2H264::Run] error: avio_open failed.\n");
         fclose(in_file);
         exit(1);
@@ -82,8 +78,7 @@ void CFFmpegYUV2H264::Run()
     AVStream *video_st;
     // 通过媒体文件控制者获取输出文件的流媒体数据，这里 AVCodec * 写 0 ， 默认会为我们计算出合适的编码格式
     video_st = avformat_new_stream(pFormatCtx, 0);
-    if (NULL == video_st)
-    {
+    if (NULL == video_st) {
         printf("[CFFmpegYUV2H264::Run] error: avformat_new_stream failed.\n");
         fclose(in_file);
         exit(1);
@@ -130,8 +125,7 @@ void CFFmpegYUV2H264::Run()
     pCodecCtx->max_b_frames = 3;
     // 可选设置
     AVDictionary* param = 0;
-    if (AV_CODEC_ID_H264 == pCodecCtx->codec_id)
-    {
+    if (AV_CODEC_ID_H264 == pCodecCtx->codec_id) {
         // 通过--preset的参数调节编码速度和质量的平衡。
         av_dict_set(&param, "preset", "slow", 0);
         // 通过--tune的参数值指定片子的类型，是和视觉优化的参数，或有特别的情况。
@@ -139,8 +133,7 @@ void CFFmpegYUV2H264::Run()
         av_dict_set(&param, "tune", "zerolatency", 0);
     }
     //H.265
-    if (AV_CODEC_ID_H265 == pCodecCtx->codec_id)
-    {
+    if (AV_CODEC_ID_H265 == pCodecCtx->codec_id) {
         av_dict_set(&param, "preset", "ultrafast", 0);
         av_dict_set(&param, "tune", "zero-latency", 0);
     }
@@ -151,15 +144,13 @@ void CFFmpegYUV2H264::Run()
     // 通过 codec_id 找到对应的编码器
     AVCodec* pCodec;
     pCodec = avcodec_find_encoder(pCodecCtx->codec_id);
-    if (NULL == pCodec)
-    {
+    if (NULL == pCodec) {
         printf("[CFFmpegYUV2H264::Run] error: avcodec_find_encoder failed.\n");
         fclose(in_file);
         exit(1);
     }
     // 打开编码器，并设置参数 param
-    if (avcodec_open2(pCodecCtx, pCodec, &param) < 0)
-    {
+    if (avcodec_open2(pCodecCtx, pCodec, &param) < 0) {
         printf("[CFFmpegYUV2H264::Run] error: avcodec_open2 failed.\n");
         fclose(in_file);
         exit(1);
@@ -167,8 +158,7 @@ void CFFmpegYUV2H264::Run()
     
     AVFrame* pFrame;
     pFrame = av_frame_alloc();
-    if (NULL == pFrame)
-    {
+    if (NULL == pFrame) {
         printf("[CFFmpegYUV2H264::Run] error: av_frame_alloc failed.\n");
         fclose(in_file);
         exit(1);
@@ -185,8 +175,7 @@ void CFFmpegYUV2H264::Run()
     avformat_write_header(pFormatCtx, NULL);
     
     AVPacket packet;
-    if (0 != av_new_packet(&packet, nPicSize))
-    {
+    if (0 != av_new_packet(&packet, nPicSize)) {
         printf("[CFFmpegYUV2H264::Run] error: av_new_packet failed.\n");
         fclose(in_file);
         exit(1);
@@ -196,16 +185,12 @@ void CFFmpegYUV2H264::Run()
     int y_size = pCodecCtx->width * pCodecCtx->height;
     int framenum = 100;
     int framecnt = 0;
-    for (int i = 0; i < framenum; ++i)
-    {
-        if (fread(pPicBuf, 1, y_size*3/2, in_file) <= 0)
-        {
+    for (int i = 0; i < framenum; ++i) {
+        if (fread(pPicBuf, 1, y_size*3/2, in_file) <= 0) {
             printf("[CFFmpegYUV2H264::Run] error: fread failed.\n");
             fclose(in_file);
             exit(1);
-        }
-        else if (feof(in_file))
-        {
+        } else if (feof(in_file)) {
             break;
         }
         
@@ -219,14 +204,12 @@ void CFFmpegYUV2H264::Run()
         int got_pic = 0;
 #if 1
         // 利用编码器进行编码，将 pFrame 编码后的数据传入 pkt 中
-        if (avcodec_encode_video2(pCodecCtx, &packet, pFrame, &got_pic) < 0)
-        {
+        if (avcodec_encode_video2(pCodecCtx, &packet, pFrame, &got_pic) < 0) {
             printf("[CFFmpegYUV2H264::Run] error: avcodec_encode_video2 failed.\n");
             fclose(in_file);
             exit(1);
         }
-        if (got_pic != 1)
-        {
+        if (got_pic != 1) {
             continue;
         }
 #else
@@ -234,8 +217,7 @@ void CFFmpegYUV2H264::Run()
         //got_pic = avcodec_receive_packet(pCodecCtx, &packet);
         got_pic = avcodec_send_frame(pCodecCtx, pFrame);
         got_pic += avcodec_receive_packet(pCodecCtx, &packet);
-        if (0 != got_pic)
-        {
+        if (0 != got_pic) {
             printf("[CFFmpegYUV2H264::Run] error: avcodec_send_frame or avcodec_receive_packet failed.\n");
             fclose(in_file);
             exit(1);
@@ -252,8 +234,7 @@ void CFFmpegYUV2H264::Run()
         av_packet_unref(&packet);
     }
     
-    if (flush_encoder(pFormatCtx, 0) < 0)
-    {
+    if (flush_encoder(pFormatCtx, 0) < 0) {
         printf("[CFFmpegYUV2H264::Run] error: flush_encoder failed.\n");
         fclose(in_file);
         exit(1);
@@ -262,8 +243,7 @@ void CFFmpegYUV2H264::Run()
     // 写入数据流尾部到输出文件当中，并释放文件的私有数据
     av_write_trailer(pFormatCtx);
     
-    if (NULL != video_st)
-    {
+    if (NULL != video_st) {
         // 关闭编码器
         avcodec_close(video_st->codec);
         // 释放 AVFrame
@@ -298,33 +278,28 @@ int CFFmpegYUV2H264::flush_encoder(AVFormatContext *fmt_ctx, unsigned int stream
     
     if (NULL == fmt_ctx->streams || NULL == *(fmt_ctx->streams)
         || NULL == fmt_ctx->streams[stream_index]
-        || !(fmt_ctx->streams[stream_index]->codec->codec->capabilities & CODEC_CAP_DELAY))
-    {
+        || !(fmt_ctx->streams[stream_index]->codec->codec->capabilities & CODEC_CAP_DELAY)) {
         return 0;
     }
     
-    while (1)
-    {
+    while (1) {
         enc_pkt.data = NULL;
         enc_pkt.size = 0;
         av_init_packet(&enc_pkt);
         
         ret = avcodec_encode_video2(fmt_ctx->streams[stream_index]->codec, &enc_pkt, NULL, &got_frame);
         av_frame_free(NULL);
-        if (ret < 0)
-        {
+        if (ret < 0) {
             break;
         }
-        if (!got_frame)
-        {
+        if (!got_frame) {
             ret = 0;
             break;
         }
         printf("###### Flush Encoder: Succeed to encode 1 frame!\tsize:%5d\n", enc_pkt.size);
         
         ret = av_write_frame(fmt_ctx, &enc_pkt);
-        if (ret < 0)
-        {
+        if (ret < 0) {
             break;
         }
     }
@@ -337,21 +312,18 @@ void CFFmpegYUV2H264::Record(uint8_t* pImgData, int nWidth, int nHeight, bool bE
     const char* out_file = "./video/screenshots.h264";
     
     Init(out_file, pImgData, nWidth, nHeight);
-    if (!m_bInit)
-    {
+    if (!m_bInit) {
         printf("[CFFmpegYUV2H264::Record()] init failed\n");
         return;
     }
     
-    if (bEnd)
-    {
+    if (bEnd) {
         End();
         return;
     }
     
     AVFrame *pSrcFrame = av_frame_alloc();
-    if (NULL == pSrcFrame)
-    {
+    if (NULL == pSrcFrame) {
         printf("[CFFmpegYUV2H264::Record] error: av_frame_alloc failed.\n");
         exit(1);
     }
@@ -385,13 +357,11 @@ void CFFmpegYUV2H264::Record(uint8_t* pImgData, int nWidth, int nHeight, bool bE
         int got_pic = 0;
 
         // 利用编码器进行编码，将 pFrame 编码后的数据传入 pkt 中
-        if (avcodec_encode_video2(pCodecCtx, &packet, pFrame, &got_pic) < 0)
-        {
+        if (avcodec_encode_video2(pCodecCtx, &packet, pFrame, &got_pic) < 0) {
             printf("[CFFmpegYUV2H264::Record] error: avcodec_encode_video2 failed.\n");
             exit(1);
         }
-        if (got_pic != 1)
-        {
+        if (got_pic != 1) {
             return;
         }
         
@@ -410,8 +380,7 @@ void CFFmpegYUV2H264::Record(uint8_t* pImgData, int nWidth, int nHeight, bool bE
 
 void CFFmpegYUV2H264::End()
 {
-    if (flush_encoder(pFormatCtx, 0) < 0)
-    {
+    if (flush_encoder(pFormatCtx, 0) < 0) {
         printf("[CFFmpegYUV2H264::End] error: flush_encoder failed.\n");
         exit(1);
     }
@@ -419,8 +388,7 @@ void CFFmpegYUV2H264::End()
     // 写入数据流尾部到输出文件当中，并释放文件的私有数据
     av_write_trailer(pFormatCtx);
     
-    if (NULL != video_st)
-    {
+    if (NULL != video_st) {
         // 关闭编码器
         avcodec_close(video_st->codec);
         // 释放 AVFrame
@@ -439,21 +407,18 @@ void CFFmpegYUV2H264::End()
 
 void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, int nHeight)
 {
-    if (out_file == NULL)
-    {
+    if (out_file == NULL) {
         return;
     }
     
-    if (!m_bInit)
-    {
+    if (!m_bInit) {
         m_bInit = true;
         // 注册 ffmpeg 中的所有的封装、解封装 和 协议等，当然，你也可用以下两个函数代替
         av_register_all();
         
         // 用作之后写入视频帧并编码成 h264，贯穿整个工程当中
         pFormatCtx = avformat_alloc_context();
-        if (NULL == pFormatCtx)
-        {
+        if (NULL == pFormatCtx) {
             printf("[CFFmpegYUV2H264::Init] error: avformat_alloc_context failed.\n");
             exit(1);
         }
@@ -468,16 +433,14 @@ void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, 
 #endif
         
         // 打开文件的缓冲区输入输出，flags 标识为  AVIO_FLAG_READ_WRITE ，可读写
-        if (avio_open(&pFormatCtx->pb, out_file, AVIO_FLAG_READ_WRITE) < 0)
-        {
+        if (avio_open(&pFormatCtx->pb, out_file, AVIO_FLAG_READ_WRITE) < 0) {
             printf("[CFFmpegYUV2H264::Init] error: avio_open failed.\n");
             exit(1);
         }
         
         // 通过媒体文件控制者获取输出文件的流媒体数据，这里 AVCodec * 写 0 ， 默认会为我们计算出合适的编码格式
         video_st = avformat_new_stream(pFormatCtx, 0);
-        if (NULL == video_st)
-        {
+        if (NULL == video_st) {
             printf("[CFFmpegYUV2H264::Init] error: avformat_new_stream failed.\n");
             exit(1);
         }
@@ -517,8 +480,7 @@ void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, 
         
         // 可选设置
         param = 0;
-        if (AV_CODEC_ID_H264 == pCodecCtx->codec_id)
-        {
+        if (AV_CODEC_ID_H264 == pCodecCtx->codec_id) {
             // 通过--preset的参数调节编码速度和质量的平衡。
             av_dict_set(&param, "preset", "slow", 0);
             // 通过--tune的参数值指定片子的类型，是和视觉优化的参数，或有特别的情况。
@@ -526,8 +488,7 @@ void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, 
             av_dict_set(&param, "tune", "zerolatency", 0);
         }
         //H.265
-        if (AV_CODEC_ID_H265 == pCodecCtx->codec_id)
-        {
+        if (AV_CODEC_ID_H265 == pCodecCtx->codec_id) {
             av_dict_set(&param, "preset", "ultrafast", 0);
             av_dict_set(&param, "tune", "zero-latency", 0);
         }
@@ -539,24 +500,20 @@ void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, 
         
         // 通过 codec_id 找到对应的编码器
         pCodec = avcodec_find_encoder(pCodecCtx->codec_id);
-        if (NULL == pCodec)
-        {
+        if (NULL == pCodec) {
             printf("[CFFmpegYUV2H264::Init] error: avcodec_find_encoder failed.\n");
             exit(1);
         }
         // 打开编码器，并设置参数 param
-        if (avcodec_open2(pCodecCtx, pCodec, &param) < 0)
-        {
+        if (avcodec_open2(pCodecCtx, pCodec, &param) < 0) {
             printf("[CFFmpegYUV2H264::Init] error: avcodec_open2 failed.\n");
             exit(1);
         }
         
         // 目标frame
-        int nPicSize = 0;
-        {
+        int nPicSize = 0; {
             pFrame = av_frame_alloc();
-            if (NULL == pFrame)
-            {
+            if (NULL == pFrame) {
                 printf("[CFFmpegYUV2H264::Init] error: av_frame_alloc failed.\n");
                 exit(1);
             }
@@ -592,8 +549,7 @@ void CFFmpegYUV2H264::Init(const char* out_file, uint8_t* pImgData, int nWidth, 
         // 编写 h264 封装格式的文件头部，基本上每种编码都有着自己的格式的头部，想看具体实现的同学可以看看 h264 的具体实现
         avformat_write_header(pFormatCtx, NULL);
         
-        if (0 != av_new_packet(&packet, nPicSize))
-        {
+        if (0 != av_new_packet(&packet, nPicSize)) {
             printf("[CFFmpegYUV2H264::Init] error: av_new_packet failed.\n");
             exit(1);
         }

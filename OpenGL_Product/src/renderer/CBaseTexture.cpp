@@ -26,9 +26,8 @@ CBaseTexture::CBaseTexture()
 
 CBaseTexture::~CBaseTexture()
 {
-    printf("[CBaseTexture::~CBaseTexture()] handleID[%d] \n", m_uHandleID);
-    if (0 != m_uHandleID)
-    {
+    printf("[CBaseTexture::~CBaseTexture] handleID[%d] \n", m_uHandleID);
+    if (0 != m_uHandleID) {
         glDeleteTextures(1, &m_uHandleID);
         m_uHandleID = 0;
     }
@@ -61,32 +60,30 @@ void CBaseTexture::LoadTexture(int nLoadType)
 
 void CBaseTexture::UpdateTexture(const std::string &strPath)
 {
-    if (strPath.empty())
-    {
+    if (strPath.empty()) {
         printf("[CBaseTexture::UpdateTexture] error: image path is empty.\n");
         return;
     }
     
-    //unsigned int width, height;
     int width, height;
-    int nChannel;
+    int channel;
     // Actual RGB data
     unsigned char * data;
     GLenum format = GL_RGB;
     
-    data = stbi_load(strPath.c_str(), &width, &height, &nChannel, 0);
-    if (NULL == data)
-    {
-        printf("[CBaseTexture::UpdateTexture] -=-=-=-=-=-=-=-= loadfile failed \n");
+    data = stbi_load(strPath.c_str(), &width, &height, &channel, 0);
+    if (NULL == data) {
+        printf("[CBaseTexture::UpdateTexture] loadfile[%s] failed \n", strPath.c_str());
         return;
     }
     
-    if (nChannel == 1)
+    if (1 == channel) {
         format = GL_RED;
-    else if (nChannel == 3)
+    } else if (3 == channel) {
         format = GL_RGB;
-    else if (nChannel == 4)
+    } else if (4 == channel) {
         format = GL_RGBA;
+    }
     
     glBindTexture(GL_TEXTURE_2D, m_uHandleID);
     
@@ -101,21 +98,17 @@ void CBaseTexture::UpdateTexture(const std::string &strPath)
 
 void CBaseTexture::UpdateTexture(const void *pData, int width, int height)
 {
-    if (NULL == pData || width <=0 || height <= 0)
-    {
+    if (NULL == pData || width <=0 || height <= 0) {
         printf("[CBaseTexture::UpdateTexture] warning: parametre is invalid. pData[%p], width[%d], height[%d]\n", pData, width, height);
         return;
     }
     
     glBindTexture(GL_TEXTURE_2D, m_uHandleID);
     
-    if (m_is_first_update)
-    {
+    if (m_is_first_update) {
         m_is_first_update = false;
         glTexImage2D(m_uTarget, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pData);
-    }
-    else
-    {
+    } else {
         // update the image to OpenGL
         glTexSubImage2D(m_uTarget, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pData);
     }
@@ -147,29 +140,26 @@ unsigned int CBaseTexture::LoadBMPCustom(const char * imagepath)
     //unsigned int width, height;
     int width, height;
     unsigned int imageSize;   // = width*height*3
-    int nChannel;
     // Actual RGB data
     unsigned char * data;
     GLenum format = GL_RGB;
 //#define AA
 #ifdef AA
-    // Open the file
     FILE * file = fopen(imagepath,"rb");
-    if (!file)
-    {
-        printf("Image could not be openedn");
+    if (!file) {
+        printf("[CBaseTexture::LoadBMPCustom] error: Image could not be opened.\n");
         return 0;
     }
     
     // 文件一开始是54字节长的文件头，用于标识”这是不是一个BMP文件”、图像大小、像素位等等。
-    if ( fread(header, 1, 54, file)!=54 ){ // If not 54 bytes read : problem
-        printf("Not a correct BMP filen");
+    if ( fread(header, 1, 54, file)!=54 ) { // If not 54 bytes read : problem
+        printf("[CBaseTexture::LoadBMPCustom] error: Not a correct BMP file.\n");
         return false;
     }
     
     // 'B' 'M'开头检测
-    if ( header[0]!='B' || header[1]!='M' ){
-        printf("Not a correct BMP filen");
+    if ( header[0]!='B' || header[1]!='M' ) {
+        printf("[CBaseTexture::LoadBMPCustom] error: Not a correct BMP file\n");
         return 0;
     }
     
@@ -195,19 +185,20 @@ unsigned int CBaseTexture::LoadBMPCustom(const char * imagepath)
     //Everything is in memory now, the file can be closed
     fclose(file);
 #else
-    data = stbi_load(imagepath, &width, &height, &nChannel, 0);
-    if (NULL == data)
-    {
-        printf("[] -=-=-=-=-=-=-=-= loadfile failed \n");
+    int channel;
+    data = stbi_load(imagepath, &width, &height, &channel, 0);
+    if (NULL == data) {
+        printf("[CBaseTexture::LoadBMPCustom] error: loadfile[%s] failed.\n", imagepath);
         return 0;
     }
     
-    if (nChannel == 1)
+    if (channel == 1) {
         format = GL_RED;
-    else if (nChannel == 3)
+    } else if (channel == 3) {
         format = GL_RGB;
-    else if (nChannel == 4)
+    } else if (channel == 4) {
         format = GL_RGBA;
+    }
 #endif
     // 创建纹理和创建顶点缓冲差不多：创建一个纹理、绑定、填充、配置。
     glGenTextures(1, &m_uHandleID);
@@ -253,19 +244,21 @@ unsigned int CBaseTexture::LoadBMPCustom(const char * imagepath)
 unsigned int CBaseTexture::LoadDDS(const char * imagepath)
 {
     unsigned char header[124];
-    
     FILE *fp;
     
     /* try to open the file */
     fp = fopen(imagepath, "rb");
-    if (fp == NULL)
+    if (fp == NULL) {
+        printf("[CBaseTexture::LoadDDS] error: open imagepath[%s] failed.\n", imagepath);
         return 0;
+    }
     
     /* verify the type of file */
     char filecode[4];
     fread(filecode, 1, 4, fp);
     if (strncmp(filecode, "DDS ", 4) != 0) {
         fclose(fp);
+        printf("[CBaseTexture::LoadDDS] error: not a DDS file.\n");
         return 0;
     }
     
@@ -273,8 +266,8 @@ unsigned int CBaseTexture::LoadDDS(const char * imagepath)
     fread(&header, 124, 1, fp);
     
     unsigned int height      = *(unsigned int*)&(header[8 ]);
-    unsigned int width         = *(unsigned int*)&(header[12]);
-    unsigned int linearSize     = *(unsigned int*)&(header[16]);
+    unsigned int width       = *(unsigned int*)&(header[12]);
+    unsigned int linearSize  = *(unsigned int*)&(header[16]);
     unsigned int mipMapCount = *(unsigned int*)&(header[24]);
     unsigned int fourCC      = *(unsigned int*)&(header[80]);
     
@@ -290,8 +283,7 @@ unsigned int CBaseTexture::LoadDDS(const char * imagepath)
     // 处理三种格式：DXT1、DXT3和DXT5。我们得把”fourCC”标识转换成OpenGL能识别的值。
     unsigned int components  = (fourCC == FOURCC_DXT1) ? 3 : 4;
     unsigned int format;
-    switch(fourCC)
-    {
+    switch(fourCC) {
         case FOURCC_DXT1:
             format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
             break;
@@ -317,8 +309,7 @@ unsigned int CBaseTexture::LoadDDS(const char * imagepath)
     unsigned int offset = 0;
     
     /* load the mipmaps */
-    for (unsigned int level = 0; level < mipMapCount && (width || height); ++level)
-    {
+    for (unsigned int level = 0; level < mipMapCount && (width || height); ++level) {
         unsigned int size = ((width+3)/4)*((height+3)/4)*blockSize;
         // (目标纹理，level，数据格式（这边是颜色），图片宽，图片长，border（只能0或1)，数据类型，数据)
         glCompressedTexImage2D(GL_TEXTURE_2D, level, format, width, height, 0, size, buffer + offset);

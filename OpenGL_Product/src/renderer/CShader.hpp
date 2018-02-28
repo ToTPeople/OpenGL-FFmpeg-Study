@@ -36,7 +36,7 @@ public:
     virtual bool LoadShaders();
     
     void UseProgram();
-    // 着色器变量属性
+    // 着色器变量属性 获取、设置
     unsigned int GetAttribByString(int nType, const std::string& strAttr);
     void SendUniform1iToShader(int nAttr, int nValue);
     void SendUniformMatrix4fvToShader(int nAttr, int nCnt, glm::mat4& value);

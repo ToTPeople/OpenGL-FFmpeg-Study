@@ -29,7 +29,6 @@
 		64A48BAB2010879F0038A012 /* CBaseShape.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64A48BA92010879F0038A012 /* CBaseShape.cpp */; };
 		64A48BAE20108D470038A012 /* CTriangleShape.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64A48BAD20108D470038A012 /* CTriangleShape.cpp */; };
 		64A48BB12010941A0038A012 /* CShapeManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64A48BB02010941A0038A012 /* CShapeManager.cpp */; };
-		64A48BB42011F0900038A012 /* CShapeDataLoadHelper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64A48BB22011F0900038A012 /* CShapeDataLoadHelper.cpp */; };
 		64A48BB72011F5990038A012 /* CShapeDataObj.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64A48BB52011F5990038A012 /* CShapeDataObj.cpp */; };
 		64A48BBA201589140038A012 /* othertest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64A48BB8201589140038A012 /* othertest.cpp */; };
 		64A48BBD201715AE0038A012 /* CBaseFrameBufferObj.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64A48BBB201715AE0038A012 /* CBaseFrameBufferObj.cpp */; };
@@ -105,8 +104,6 @@
 		64A48BAD20108D470038A012 /* CTriangleShape.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CTriangleShape.cpp; sourceTree = "<group>"; };
 		64A48BAF2010941A0038A012 /* CShapeManager.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = CShapeManager.hpp; sourceTree = "<group>"; };
 		64A48BB02010941A0038A012 /* CShapeManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CShapeManager.cpp; sourceTree = "<group>"; };
-		64A48BB22011F0900038A012 /* CShapeDataLoadHelper.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CShapeDataLoadHelper.cpp; sourceTree = "<group>"; };
-		64A48BB32011F0900038A012 /* CShapeDataLoadHelper.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = CShapeDataLoadHelper.hpp; sourceTree = "<group>"; };
 		64A48BB52011F5990038A012 /* CShapeDataObj.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CShapeDataObj.cpp; sourceTree = "<group>"; };
 		64A48BB62011F5990038A012 /* CShapeDataObj.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = CShapeDataObj.hpp; sourceTree = "<group>"; };
 		64A48BB8201589140038A012 /* othertest.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = othertest.cpp; sourceTree = "<group>"; };
@@ -313,8 +310,6 @@
 				64A48B7F200D91CE0038A012 /* CBaseWindowMgr.hpp */,
 				64A48B9C201081570038A012 /* CTextureMgr.cpp */,
 				64A48B9D201081570038A012 /* CTextureMgr.hpp */,
-				64A48BB22011F0900038A012 /* CShapeDataLoadHelper.cpp */,
-				64A48BB32011F0900038A012 /* CShapeDataLoadHelper.hpp */,
 				64A48BF3202BEC4D0038A012 /* CPthreadMuteHelper.cpp */,
 				64A48BF4202BEC4D0038A012 /* CPthreadMuteHelper.hpp */,
 				64A48BF9202C20890038A012 /* CThreadProductConsumerHelper.cpp */,
@@ -583,7 +578,6 @@
 				64A48BA42010859D0038A012 /* CShaderMgr.cpp in Sources */,
 				64A48BE9202066100038A012 /* CBaseVideoPlay.cpp in Sources */,
 				64A48B5320088F340038A012 /* CDataObject.cpp in Sources */,
-				64A48BB42011F0900038A012 /* CShapeDataLoadHelper.cpp in Sources */,
 				64A48BB12010941A0038A012 /* CShapeManager.cpp in Sources */,
 				64288D982040007700D60B14 /* mux_test.cpp in Sources */,
 				64A48B49200884A00038A012 /* main.cpp in Sources */,

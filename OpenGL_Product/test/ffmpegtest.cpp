@@ -116,13 +116,13 @@ char * urlprotocolinfo()
     //Input
     struct URLProtocol **p_temp = &pup;
     avio_enum_protocols((void **)p_temp, 0);
-    while ((*p_temp) != NULL){
+    while ((*p_temp) != NULL) {
         sprintf(info, "%s[In ][%10s]\n", info, avio_enum_protocols((void **)p_temp, 0));
     }
     pup = NULL;
     //Output
     avio_enum_protocols((void **)p_temp, 1);
-    while ((*p_temp) != NULL){
+    while ((*p_temp) != NULL) {
         sprintf(info, "%s[Out][%10s]\n", info, avio_enum_protocols((void **)p_temp, 1));
     }
     
@@ -143,12 +143,12 @@ char * avformatinfo()
     AVInputFormat *if_temp = av_iformat_next(NULL);
     AVOutputFormat *of_temp = av_oformat_next(NULL);
     //Input
-    while(if_temp!=NULL){
+    while(if_temp!=NULL) {
         sprintf(info, "%s[In ] %10s\n", info, if_temp->name);
         if_temp=if_temp->next;
     }
     //Output
-    while (of_temp != NULL){
+    while (of_temp != NULL) {
         sprintf(info, "%s[Out] %10s\n", info, of_temp->name);
         of_temp = of_temp->next;
     }
@@ -167,14 +167,13 @@ char * avcodecinfo()
     
     AVCodec *c_temp = av_codec_next(NULL);
     
-    while(c_temp!=NULL){
-        if (c_temp->decode!=NULL){
+    while(c_temp!=NULL) {
+        if (c_temp->decode!=NULL) {
             sprintf(info, "%s[Dec]", info);
-        }
-        else{
+        } else {
             sprintf(info, "%s[Enc]", info);
         }
-        switch (c_temp->type){
+        switch (c_temp->type) {
             case AVMEDIA_TYPE_VIDEO:
                 sprintf(info, "%s[Video]", info);
                 break;
@@ -205,7 +204,7 @@ char * avfilterinfo()
     
     AVFilter *f_temp = (AVFilter *)avfilter_next(NULL);
     
-    while (f_temp != NULL){
+    while (f_temp != NULL) {
         sprintf(info, "%s[%15s]\n", info, f_temp->name);
         f_temp=f_temp->next;
     }
@@ -297,18 +296,17 @@ int code_view()
      return -1;
      }
      */
-    while(1)
-    {
-        if (fread(temp_buffer, 1, src_w*src_h*src_bpp/8, src_file) != src_w*src_h*src_bpp/8){
+    while(1) {
+        if (fread(temp_buffer, 1, src_w*src_h*src_bpp/8, src_file) != src_w*src_h*src_bpp/8) {
             break;
         }
         
         switch(src_pixfmt){
-            case AV_PIX_FMT_GRAY8:{
+            case AV_PIX_FMT_GRAY8: {
                 memcpy(src_data[0],temp_buffer,src_w*src_h);
                 break;
             }
-            case AV_PIX_FMT_YUV420P:{
+            case AV_PIX_FMT_YUV420P: {
                 memcpy(src_data[0],temp_buffer,src_w*src_h);                    //Y
                 memcpy(src_data[1],temp_buffer+src_w*src_h,src_w*src_h/4);      //U
                 memcpy(src_data[2],temp_buffer+src_w*src_h*5/4,src_w*src_h/4);  //V
@@ -320,17 +318,17 @@ int code_view()
                 memcpy(src_data[2],temp_buffer+src_w*src_h*3/2,src_w*src_h/2);  //V
                 break;
             }
-            case AV_PIX_FMT_YUV444P:{
+            case AV_PIX_FMT_YUV444P: {
                 memcpy(src_data[0],temp_buffer,src_w*src_h);                    //Y
                 memcpy(src_data[1],temp_buffer+src_w*src_h,src_w*src_h);        //U
                 memcpy(src_data[2],temp_buffer+src_w*src_h*2,src_w*src_h);      //V
                 break;
             }
-            case AV_PIX_FMT_YUYV422:{
+            case AV_PIX_FMT_YUYV422: {
                 memcpy(src_data[0],temp_buffer,src_w*src_h*2);                  //Packed
                 break;
             }
-            case AV_PIX_FMT_RGB24:{
+            case AV_PIX_FMT_RGB24: {
                 memcpy(src_data[0],temp_buffer,src_w*src_h*3);                  //Packed
                 break;
             }
@@ -344,34 +342,34 @@ int code_view()
         printf("Finish process frame %5d\n",frame_idx);
         frame_idx++;
         
-        switch(dst_pixfmt){
-            case AV_PIX_FMT_GRAY8:{
+        switch(dst_pixfmt) {
+            case AV_PIX_FMT_GRAY8: {
                 fwrite(dst_data[0],1,dst_w*dst_h,dst_file);
                 break;
             }
-            case AV_PIX_FMT_YUV420P:{
+            case AV_PIX_FMT_YUV420P: {
                 fwrite(dst_data[0],1,dst_w*dst_h,dst_file);                 //Y
                 fwrite(dst_data[1],1,dst_w*dst_h/4,dst_file);               //U
                 fwrite(dst_data[2],1,dst_w*dst_h/4,dst_file);               //V
                 break;
             }
-            case AV_PIX_FMT_YUV422P:{
+            case AV_PIX_FMT_YUV422P: {
                 fwrite(dst_data[0],1,dst_w*dst_h,dst_file);                    //Y
                 fwrite(dst_data[1],1,dst_w*dst_h/2,dst_file);                //U
                 fwrite(dst_data[2],1,dst_w*dst_h/2,dst_file);                //V
                 break;
             }
-            case AV_PIX_FMT_YUV444P:{
+            case AV_PIX_FMT_YUV444P: {
                 fwrite(dst_data[0],1,dst_w*dst_h,dst_file);                 //Y
                 fwrite(dst_data[1],1,dst_w*dst_h,dst_file);                 //U
                 fwrite(dst_data[2],1,dst_w*dst_h,dst_file);                 //V
                 break;
             }
-            case AV_PIX_FMT_YUYV422:{
+            case AV_PIX_FMT_YUYV422: {
                 fwrite(dst_data[0],1,dst_w*dst_h*2,dst_file);               //Packed
                 break;
             }
-            case AV_PIX_FMT_RGB24:{
+            case AV_PIX_FMT_RGB24: {
                 fwrite(dst_data[0],1,dst_w*dst_h*3,dst_file);               //Packed
                 break;
             }

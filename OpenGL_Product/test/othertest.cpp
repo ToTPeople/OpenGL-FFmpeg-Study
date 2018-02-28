@@ -63,8 +63,7 @@ const char* const kszTexturePath = "./bmp/filename_0.bmp";//"441H.jpg";
 
 int DrawElementTest()
 {
-    if (!glfwInit())
-    {
+    if ( !glfwInit() ) {
         fprintf(stderr, "Failed to initialize GLFW.\n");
         return -1;
     }
@@ -73,8 +72,7 @@ int DrawElementTest()
     CBaseWindows window;
     window.SetWinTitle("OpenGL Test");
     window.SetWindowsAttr(GLFW_SAMPLES, 4);             // 4个采样数
-    if (NULL == window.CreateWindows())
-    {
+    if (NULL == window.CreateWindows()) {
         fprintf(stderr, "Create windows failed.\n");
         return -1;
     }
@@ -84,8 +82,7 @@ int DrawElementTest()
     window.SetInputMode(GLFW_STICKY_MOUSE_BUTTONS, GL_TRUE);
     
     // 放在创建windows并设置current context后
-    if (glewInit() != GLEW_OK)
-    {
+    if (glewInit() != GLEW_OK) {
         fprintf(stderr, "Failed to initialize GLEW.\n");
         return -1;
     }
@@ -106,8 +103,7 @@ int DrawElementTest()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(g_index_vertex_data), g_index_vertex_data, GL_STATIC_DRAW);
     
     CShader* pShader = new CShader();
-    if (NULL == pShader)
-    {
+    if (NULL == pShader) {
         return -1;
     }
     pShader->SetVertexFilePath(kszOtherVtxPath);
@@ -119,8 +115,7 @@ int DrawElementTest()
     GLuint uvPos = pShader->GetAttribByString(SHADER_ATTR_GET_NORMAL, kszUVPos);
     
     CBaseTexture* pTexture = new CBaseTexture();
-    if (NULL == pTexture)
-    {
+    if (NULL == pTexture) {
         return -1;
     }
     pTexture->SetImagePath(kszTexturePath);
@@ -149,8 +144,7 @@ int DrawElementTest()
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);
     
     // check
-    if (GL_FRAMEBUFFER_COMPLETE != glCheckFramebufferStatus(GL_FRAMEBUFFER))
-    {
+    if (GL_FRAMEBUFFER_COMPLETE != glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
         fprintf(stderr, "Framebuffer is not complete.\n");
         return -1;
     }
@@ -203,8 +197,7 @@ int DrawElementTest()
     
     // shader
     CShader* pScreenShader = new CShader();
-    if (NULL == pScreenShader)
-    {
+    if (NULL == pScreenShader) {
         return -1;
     }
     pScreenShader->SetVertexFilePath(kszScreenVtxShader);
@@ -220,10 +213,8 @@ int DrawElementTest()
     int idx = 0;
     char *filename = new char[64];
     
-    do
-    {
-        if (idx > 298)
-        {
+    do {
+        if (idx > 298) {
             break;
         }
         

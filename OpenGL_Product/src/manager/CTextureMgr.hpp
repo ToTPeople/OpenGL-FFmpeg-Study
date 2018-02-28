@@ -20,11 +20,11 @@ class CTextureMgr
 public:
     static CTextureMgr* GetInstance();
     
-    // 添加、获取 texture 对象
+    // add and get texture object
     bool AddTexture(const std::string& strPath, CBaseTexture* pTexture);
     CBaseTexture* GetTexture(const std::string& strPath);
     
-    // 生成、获取video play图片名称
+    // generate and get VideoPlay picture name
     void GenNewVideoPlayPic();
     std::string GetVideoPlayPic();
     
@@ -34,7 +34,7 @@ private:
 private:
     static CTextureMgr* m_pInstance;
     std::map<std::string, CBaseTexture*> m_mpTexture;
-    int                 m_nVideoPlayPicIndex;
+    int                 m_nVideoPlayPicIndex;           // how much VideoPlay picture has generate
 };
 
 #define g_pTextureMgr (CTextureMgr::GetInstance())

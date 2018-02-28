@@ -12,8 +12,7 @@ CThreadProductConsumerHelper* CThreadProductConsumerHelper::m_pInstance = NULL;
 
 CThreadProductConsumerHelper* CThreadProductConsumerHelper::GetInstance()
 {
-    if (NULL == m_pInstance)
-    {
+    if (NULL == m_pInstance) {
         m_pInstance = new CThreadProductConsumerHelper();
     }
     

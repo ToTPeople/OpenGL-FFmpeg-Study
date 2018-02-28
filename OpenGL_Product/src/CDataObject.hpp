@@ -25,31 +25,41 @@ public:
     
     virtual void LoadData();
     
+    // 顶点、UV、法线、序号 数据获取
     bool GetVertexsData(std::vector<glm::vec3> &vecVertexs);
     bool GetUVsData(std::vector<glm::vec2> &vecUVs);
     bool GetNormalData(std::vector<glm::vec3> &vecNormal);
     bool GetIndices(std::vector<unsigned short> &vecIndices);
     
+    // set and get attribute that if depend on 'Index' to store data
     void SetUseIndex(bool bUseIndex);
     bool IsUseIndex();
+    
+    // pic is DDS type or not
     void SetDDSPicData(bool bDDS);
     
+    // set and get attribute that 'Index' store data offset
     void SetBufferVertexOff(int nBufferVertexOff);
     int GetBufferVertexOff();
     void SetBufferIndicesOff(int nBufferIndicesOff);
     int GetBufferIndicesOff();
     
+    // 顶点、UV、法线、序号 数据获取
     std::vector<glm::vec3> &GetVertexsData();
     std::vector<glm::vec2> &GetUVsData();
     std::vector<glm::vec3> &GetNormalData();
     std::vector<unsigned short> &GetIndices();
     
+    // set load data path
     void SetDataFilePath(const std::string& strDataFilePath);
     
 protected:
+    // judge if 'Index' data has exist
     bool GetSimilarVertexIndexFast(PackedVertex & packed
                                    , std::map<PackedVertex,unsigned short> & VertexToOutIndex
                                    , unsigned short & result);
+    
+    // generate 'Index' data
     void GenIndexVBO(std::vector<glm::vec3> & in_vertices,
                   std::vector<glm::vec2> & in_uvs,
                   std::vector<glm::vec3> & in_normals,

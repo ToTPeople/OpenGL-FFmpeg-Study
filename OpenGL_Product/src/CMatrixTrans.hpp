@@ -15,9 +15,6 @@
 
 struct GLFWwindow;
 
-
-
-
 class CMatrixTrans
 {
 public:
@@ -25,7 +22,7 @@ public:
     virtual ~CMatrixTrans();
     
 public:
-    // 属性
+    // set attributes
     void SetHorizontalAngle(float fHorizontalAngle);
     void SetVerticalAngle(float fVerticalAngle);
     void SetCenterPosX(float fCenterPosX);
@@ -43,13 +40,15 @@ public:
     void SetMoveXY(float fPosX, float fPosY, float fPosZ);
     
 public:
+    // get matrix
     glm::mat4 GetProjectionMatrix();
     glm::mat4 GetViewMatrix();
     glm::mat4 GetMVPMatrix();
-    // 鼠标、键盘事件响应
+    
+    // deal with mouse and key event
     virtual void UpdatePositionByArrowKey(int eArrowKey, float fDeltaTime);
     virtual void UpdateDirectorByCursorPos(float fXPos, float fYPos);
-    // 收放矩阵
+    // scale matrix
     virtual void ScaleMatrix();
     // 更新xOy上x、y平移量
     void UpdateTransMatrix(float fXPos, float fYPos);

@@ -28,8 +28,7 @@ CShapeManager* CShapeManager::m_pInstance = NULL;
 
 CShapeManager* CShapeManager::GetInstance()
 {
-    if (NULL == m_pInstance)
-    {
+    if (NULL == m_pInstance) {
         m_pInstance = new CShapeManager();
     }
     
@@ -43,14 +42,12 @@ CShapeManager::CShapeManager()
 CBaseShape* CShapeManager::GenShape(int eShapeType, int eDrawType, bool bVideoPlay /* = false */)
 {
     CBaseShape* pShape = GenerateShape(eShapeType);
-    if (NULL == pShape)
-    {
-        printf("[CShapeManager::GenShape] Failed to create. eShapeType[%d]", eShapeType);
+    if (NULL == pShape) {
+        printf("[CShapeManager::GenShape] error: Failed to create. eShapeType[%d]", eShapeType);
         return NULL;
     }
     
-    switch (eDrawType)
-    {
+    switch (eDrawType) {
         case RENDERER_TYPE_SQUARE:
             InitShape(pShape, LOAD_TEXTURE_TYPE_BMP, kszSquareDataPath, kszSquareImagePath, kszSquareVertexShader, kszSquareFragementShader, bVideoPlay);
             break;
@@ -66,10 +63,9 @@ CBaseShape* CShapeManager::GenShape(int eShapeType, int eDrawType, bool bVideoPl
     }
     
 #ifdef TEST_STENCIL
-    if (NULL != pShape
+    if ( NULL != pShape
         && (RENDERER_TYPE_SQUARE == eDrawType
-        || RENDERER_TYPE_CUBE == eDrawType))
-    {
+        || RENDERER_TYPE_CUBE == eDrawType) ) {
         pShape->SetOutline(true);
     }
 #endif
@@ -121,8 +117,7 @@ void CShapeManager::Init()
 CBaseShape* CShapeManager::GenerateShape(int eShapeType)
 {
     CBaseShape* pShape = NULL;
-    switch (eShapeType)
-    {
+    switch (eShapeType) {
         case SHAPE_TYPE_TRIANGLE:
             pShape = new CTriangleShape();
             break;
@@ -141,9 +136,8 @@ CBaseShape* CShapeManager::GenerateShape(int eShapeType)
 void CShapeManager::InitShape(CBaseShape* pShape, int eTextureLoadType, const std::string& strDataPath, const std::string& strTexturePath
                             , const std::string& strVtxShader, const std::string& strFragShader, bool bVideoPlay /* = false */)
 {
-    if (NULL == pShape)
-    {
-        printf("[CShapeManager::InitShape] NULL == pShape");
+    if (NULL == pShape) {
+        printf("[CShapeManager::InitShape] error: NULL == pShape");
         return;
     }
     
@@ -152,25 +146,21 @@ void CShapeManager::InitShape(CBaseShape* pShape, int eTextureLoadType, const st
     
     // 创建/获取数据
     CDataObject* pDataObj = g_pDataObjMgr->GetDataObj(strDataPath);
-    if (NULL == pDataObj)
-    {
+    if (NULL == pDataObj) {
         pDataObj = new CDataObject();
-        if (NULL != pDataObj)
-        {
+        if (NULL != pDataObj) {
             pDataObj->SetDDSPicData((LOAD_TEXTURE_TYPE_DDS == eTextureLoadType));
             pDataObj->SetDataFilePath(strDataPath);
             //pDataObj->SetUseIndex(true);
             //pDataObj->SetUseIndex(false);
             pDataObj->LoadData();
             
-            if (g_pDataObjMgr->AddDataObj(strDataPath, pDataObj))
-            {
+            if (g_pDataObjMgr->AddDataObj(strDataPath, pDataObj)) {
                 g_pBufferDataObject->AddData(pDataObj);
             }
         }
-    }
-    if (NULL == pDataObj)
-    {
+    } // end if (NULL == pDataObj)
+    if (NULL == pDataObj) {
         printf("[CShapeManager::InitShape] error: create/get data object failed.\n");
         return;
     }
@@ -178,11 +168,9 @@ void CShapeManager::InitShape(CBaseShape* pShape, int eTextureLoadType, const st
     
     // 创建/获取 形状shader
     CShader* pShader = g_pShaderMgr->GetShader(strVtxShader, strFragShader);
-    if (NULL == pShader)
-    {
+    if (NULL == pShader) {
         pShader = new CShader();
-        if (NULL != pShader)
-        {
+        if (NULL != pShader) {
             pShader->SetVertexFilePath(strVtxShader);
             pShader->SetFragmentFilePath(strFragShader);
             pShader->LoadShaders();
@@ -190,8 +178,7 @@ void CShapeManager::InitShape(CBaseShape* pShape, int eTextureLoadType, const st
             g_pShaderMgr->AddShader(strVtxShader, strFragShader, pShader);
         }
     }
-    if (NULL == pShader)
-    {
+    if (NULL == pShader) {
         printf("[CShapeManager::InitShape] error: Create/Get shader failed.\n");
         return;
     }
@@ -199,11 +186,9 @@ void CShapeManager::InitShape(CBaseShape* pShape, int eTextureLoadType, const st
     pShape->SetFragShaderPath(strFragShader);
     // 创建/获取 边框shader
     CShader* pOutlineShader = g_pShaderMgr->GetShader(strVtxShader, kszOutlineFragShader);
-    if (NULL == pOutlineShader)
-    {
+    if (NULL == pOutlineShader) {
         pOutlineShader = new CShader();
-        if (NULL != pOutlineShader)
-        {
+        if (NULL != pOutlineShader) {
             pOutlineShader->SetVertexFilePath(strVtxShader);
             pOutlineShader->SetFragmentFilePath(kszOutlineFragShader);
             pOutlineShader->LoadShaders();
@@ -211,54 +196,44 @@ void CShapeManager::InitShape(CBaseShape* pShape, int eTextureLoadType, const st
             g_pShaderMgr->AddShader(strVtxShader, kszOutlineFragShader, pOutlineShader);
         }
     }
-    if (NULL == pOutlineShader)
-    {
+    if (NULL == pOutlineShader) {
         printf("[CShapeManager::InitShape] error: Create/Get outline shader failed.\n");
         return;
     }
     // 创建/获取 Texture
     std::string strTexturePic = bVideoPlay ? g_pTextureMgr->GetVideoPlayPic() : strTexturePath;
     CBaseTexture* pTexture = g_pTextureMgr->GetTexture(strTexturePic);
-    if (NULL == pTexture)
-    {
+    if (NULL == pTexture) {
         pTexture = new CBaseTexture();
-        if (NULL != pTexture)
-        {
+        if (NULL != pTexture) {
             pTexture->SetImagePath(bVideoPlay ? kszVideoPlayImagePath : strTexturePath);
             pTexture->LoadTexture(eTextureLoadType);
             
-            if (g_pTextureMgr->AddTexture(strTexturePic, pTexture))
-            {
+            if (g_pTextureMgr->AddTexture(strTexturePic, pTexture)) {
                 pShape->SetTexturePath(strTexturePic);
             }
         }
     }
-    if (NULL == pTexture)
-    {
+    if (NULL == pTexture) {
         printf("[CShapeManager::InitShape] error: Create/Get texture failed.\n");
         return;
     }
     
     CMatrixTrans* pMatrixTrans = new CMatrixTrans();
-    if (NULL != pMatrixTrans)
-    {
+    if (NULL != pMatrixTrans) {
         pMatrixTrans->SetAspectRatio(4.0f / 3.0f);
-        if (NULL != pDataObj)
-        {
+        if (NULL != pDataObj) {
             pMatrixTrans->SetVertexVector(pDataObj->GetVertexsData());
         }
         
-        if (LOAD_TEXTURE_TYPE_DDS == eTextureLoadType)
-        {
+        if (LOAD_TEXTURE_TYPE_DDS == eTextureLoadType) {
 #ifndef SCALE_OPERATOR
             pMatrixTrans->SetScaleRatio(5.0);
 #endif
             static int jj = 0;
             //pMatrixTrans->SetMoveXY(jj*0.3, jj*0.3, jj*0.5);//jj*0.6);
             ++jj;
-        }
-        else if (LOAD_TEXTURE_TYPE_BMP == eTextureLoadType)
-        {
+        } else if (LOAD_TEXTURE_TYPE_BMP == eTextureLoadType) {
             static int ii = 0;
             //pMatrixTrans->SetMoveXY(ii*0.14, ii*0.14, ii*0.6);
             //pMatrixTrans->SetMoveXY(ii*0.1, ii*0.1, ii*0.11);

@@ -23,9 +23,8 @@ CShader::CShader()
 
 CShader::~CShader()
 {
-    printf("[CShader::~CShader()] IsProgramValid[%d] m_uProgramID[%d] \n", IsProgramValid(), m_uProgramID);
-    if (IsProgramValid() && m_bUsedProgram)
-    {
+    printf("[CShader::~CShader()] IsProgramValid[%d] m_uProgramID[%d]\n", IsProgramValid(), m_uProgramID);
+    if (IsProgramValid() && m_bUsedProgram) {
         glDeleteProgram(m_uProgramID);
     }
 }
@@ -42,25 +41,25 @@ void CShader::SetFragmentFilePath(const std::string strFragFilePath)
 
 bool CShader::LoadShaders()
 {
-    if (m_strVertexFilePath.empty())
-    {
+    if (m_strVertexFilePath.empty()) {
         printf("[CShader::LoadShaders()] vertex path is empty, please set path first.\n");
         return false;
     }
     
     // Create the shaders
-    GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);        // 创建着色器对象
+    GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);
     GLuint FragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
     
     // Read the Vertex Shader code from the file
     std::string VertexShaderCode;
     std::ifstream VertexShaderStream(m_strVertexFilePath, std::ios::in);
-    if(VertexShaderStream.is_open()){
+    if(VertexShaderStream.is_open()) {
         std::string Line = "";
-        while(getline(VertexShaderStream, Line))
+        while( getline(VertexShaderStream, Line) ) {
             VertexShaderCode += "\n" + Line;
+        }
         VertexShaderStream.close();
-    }else{
+    } else {
         char * dir = getcwd(NULL, 0); // Platform-dependent, see reference link below
         printf("Current dir: %s\n\n", dir);
         
@@ -72,12 +71,13 @@ bool CShader::LoadShaders()
     // Read the Fragment Shader code from the file
     std::string FragmentShaderCode;
     std::ifstream FragmentShaderStream(m_strFragmentFilePath, std::ios::in);
-    if(FragmentShaderStream.is_open()){
+    if( FragmentShaderStream.is_open() ) {
         std::string Line = "";
-        while(getline(FragmentShaderStream, Line))
+        while(getline(FragmentShaderStream, Line)) {
             FragmentShaderCode += "\n" + Line;
+        }
         FragmentShaderStream.close();
-    }else{
+    } else {
         char * dir = getcwd(NULL, 0); // Platform-dependent, see reference link below
         printf("Current dir: %s\n\n", dir);
         
@@ -99,7 +99,7 @@ bool CShader::LoadShaders()
     // Check Vertex Shader
     glGetShaderiv(VertexShaderID, GL_COMPILE_STATUS, &Result);
     glGetShaderiv(VertexShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
-    if ( InfoLogLength > 0 ){
+    if ( InfoLogLength > 0 ) {
         std::vector<char> VertexShaderErrorMessage(InfoLogLength+1);
         glGetShaderInfoLog(VertexShaderID, InfoLogLength, NULL, &VertexShaderErrorMessage[0]);
         printf("%s\n", &VertexShaderErrorMessage[0]);
@@ -116,10 +116,10 @@ bool CShader::LoadShaders()
     // Check Fragment Shader
     glGetShaderiv(FragmentShaderID, GL_COMPILE_STATUS, &Result);
     glGetShaderiv(FragmentShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
-    if ( InfoLogLength > 0 ){
+    if ( InfoLogLength > 0 ) {
         std::vector<char> FragmentShaderErrorMessage(InfoLogLength+1);
         glGetShaderInfoLog(FragmentShaderID, InfoLogLength, NULL, &FragmentShaderErrorMessage[0]);
-        printf("%s === \n", &FragmentShaderErrorMessage[0]);
+        printf("%s\n", &FragmentShaderErrorMessage[0]);
     }
     
     
@@ -134,7 +134,7 @@ bool CShader::LoadShaders()
     // Check the program
     glGetProgramiv(m_uProgramID, GL_LINK_STATUS, &Result);
     glGetProgramiv(m_uProgramID, GL_INFO_LOG_LENGTH, &InfoLogLength);
-    if ( InfoLogLength > 0 ){
+    if ( InfoLogLength > 0 ) {
         std::vector<char> ProgramErrorMessage(InfoLogLength+1);
         glGetProgramInfoLog(m_uProgramID, InfoLogLength, NULL, &ProgramErrorMessage[0]);
         printf("%s :-(\n", &ProgramErrorMessage[0]);
@@ -152,13 +152,13 @@ bool CShader::LoadShaders()
 
 void CShader::UseProgram()
 {
-    if (!IsProgramValid())
-    {
+    if (!IsProgramValid()) {
+        printf("[CShader::UseProgram] error: something param is wrong, please check first!\n");
         return;
     }
     
-    if (g_pShaderMgr->IsPreUseProgramObj(this))
-    {
+    if (g_pShaderMgr->IsPreUseProgramObj(this)) {
+//        printf("[CShader::UseProgram] warning: has use before, do not use again.\n");
         return;
     }
     
@@ -170,8 +170,8 @@ void CShader::UseProgram()
 
 unsigned int CShader::GetAttribByString(int nType, const std::string& strAttr)
 {
-    if (!IsProgramValid())
-    {
+    if (!IsProgramValid()) {
+        printf("[CShader::GetAttribByString] error: something param is wrong, please check first!\n");
         return 0;
     }
     
@@ -194,8 +194,8 @@ unsigned int CShader::GetAttribByString(int nType, const std::string& strAttr)
 
 void CShader::SendUniform1iToShader(int nAttr, int nValue)
 {
-    if (!IsProgramValid())
-    {
+    if ( !IsProgramValid() ) {
+        printf("[CShader::SendUniform1iToShader] error: something param is wrong, please check first!\n");
         return;
     }
     
@@ -204,8 +204,8 @@ void CShader::SendUniform1iToShader(int nAttr, int nValue)
 
 void CShader::SendUniformMatrix4fvToShader(int nAttr, int nCnt, glm::mat4& value)
 {
-    if (!IsProgramValid())
-    {
+    if ( !IsProgramValid() ) {
+        printf("[CShader::SendUniformMatrix4fvToShader] error: something param is wrong, please check first!\n");
         return;
     }
     
@@ -214,8 +214,7 @@ void CShader::SendUniformMatrix4fvToShader(int nAttr, int nCnt, glm::mat4& value
 
 bool CShader::IsProgramValid()
 {
-    if (0 == m_uProgramID)
-    {
+    if (0 == m_uProgramID) {
         fprintf(stderr, "#################### not create shader program, please complime first.\n");
         return false;
     }

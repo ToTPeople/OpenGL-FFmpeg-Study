@@ -29,31 +29,25 @@ bool LoadDataByFile(const char* path, std::vector<glm::vec3> & out_vertices
     out_normals.clear();
     
     FILE *file = fopen(path, "r");
-    if (NULL == file)
-    {
+    if (NULL == file) {
         char * dir = getcwd(NULL, 0); // Platform-dependent, see reference link below
         printf("Current dir: %s\n\nImpossiable to open the file %s\n", dir, path);
         return false;
     }
     
-    while (1)
-    {
+    while (1) {
         char lineHeader[g_nDefaultMaxLineLength];
         // read the first word of the line
-        if (fscanf(file, "%s", lineHeader) == EOF)
-        {
+        if (fscanf(file, "%s", lineHeader) == EOF) {
             break;
         }
         
         // else : parse lineHeader
-        if ( strcmp( lineHeader, "v" ) == 0 )
-        {
+        if ( strcmp( lineHeader, "v" ) == 0 ) {
             glm::vec3 vertex;
             fscanf(file, "%f %f %f\n", &vertex.x, &vertex.y, &vertex.z );
             temp_vertices.push_back(vertex);
-        }
-        else if ( strcmp( lineHeader, "vt" ) == 0 )
-        {
+        } else if ( strcmp( lineHeader, "vt" ) == 0 ) {
             glm::vec2 uv;
             fscanf(file, "%f %f\n", &uv.x, &uv.y );
             if (bDDS)
@@ -61,15 +55,11 @@ bool LoadDataByFile(const char* path, std::vector<glm::vec3> & out_vertices
                 uv.y = -uv.y; // Invert V coordinate since we will only use DDS texture, which are inverted. Remove if you want to use TGA or BMP loaders.
             }
             temp_uvs.push_back(uv);
-        }
-        else if ( strcmp( lineHeader, "vn" ) == 0 )
-        {
+        } else if ( strcmp( lineHeader, "vn" ) == 0 ) {
             glm::vec3 normal;
             fscanf(file, "%f %f %f\n", &normal.x, &normal.y, &normal.z );
             temp_normals.push_back(normal);
-        }
-        else if ( strcmp( lineHeader, "f" ) == 0 )
-        {
+        } else if ( strcmp( lineHeader, "f" ) == 0 ) {
             unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
             int matches = fscanf(file, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &vertexIndex[0], &uvIndex[0], &normalIndex[0], &vertexIndex[1], &uvIndex[1], &normalIndex[1], &vertexIndex[2], &uvIndex[2], &normalIndex[2] );
             if (matches != 9)
@@ -86,9 +76,7 @@ bool LoadDataByFile(const char* path, std::vector<glm::vec3> & out_vertices
             normalIndices.push_back(normalIndex[0]);
             normalIndices.push_back(normalIndex[1]);
             normalIndices.push_back(normalIndex[2]);
-        }
-        else
-        {
+        } else {
             // Probably a comment, eat up the rest of the line
             char stupidBuffer[1000];
             fgets(stupidBuffer, 1000, file);
@@ -96,8 +84,7 @@ bool LoadDataByFile(const char* path, std::vector<glm::vec3> & out_vertices
     }
     
     // For each vertex of each triangle
-    for (unsigned int i = 0; i < vertexIndices.size(); ++i)
-    {
+    for (unsigned int i = 0; i < vertexIndices.size(); ++i) {
         // Get the indices of its attributes
         unsigned int vertexIndex = vertexIndices[i];
         unsigned int uvIndex = uvIndices[i];
@@ -121,8 +108,7 @@ void CopyVertex(std::vector<glm::vec3> &to, std::vector<glm::vec3> &from)
 {
     to.clear();
     unsigned long nSize = from.size();
-    for (unsigned long i = 0; i < nSize; ++i)
-    {
+    for (unsigned long i = 0; i < nSize; ++i) {
         to.push_back(from[i]);
     }
 }
@@ -131,16 +117,14 @@ void CopyUV(std::vector<glm::vec2> &to, std::vector<glm::vec2> &from)
 {
     to.clear();
     unsigned long nSize = from.size();
-    for (unsigned long i = 0; i < nSize; ++i)
-    {
+    for (unsigned long i = 0; i < nSize; ++i) {
         to.push_back(from[i]);
     }
 }
 
 int TransGLFWKey2Normal(int eGLFWKeyType)
 {
-    switch (eGLFWKeyType)
-    {
+    switch (eGLFWKeyType) {
         case GLFW_KEY_UP:
             return ARROW_KEY_TYPE_UP;
         case GLFW_KEY_DOWN:

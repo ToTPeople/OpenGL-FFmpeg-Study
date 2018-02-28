@@ -12,8 +12,7 @@ CPthreadMuteHelper* CPthreadMuteHelper::m_pInstance = NULL;
 
 CPthreadMuteHelper* CPthreadMuteHelper::GetInstance()
 {
-    if (NULL == m_pInstance)
-    {
+    if (NULL == m_pInstance) {
         m_pInstance = new CPthreadMuteHelper();
     }
     

@@ -9,17 +9,17 @@
 #include "CTextureMgr.hpp"
 #include "CBaseTexture.hpp"
 
-namespace
-{
-#define PIC_FILENAME_LENGTH (128)
+namespace {
+#define PIC_FILENAME_MAX_LENGTH (128)
+    
+//#define TEXTURE_MGR_LOG                 // texture mgr print log message
 }
 
 CTextureMgr* CTextureMgr::m_pInstance = NULL;
 
 CTextureMgr* CTextureMgr::GetInstance()
 {
-    if (NULL == m_pInstance)
-    {
+    if (NULL == m_pInstance) {
         m_pInstance = new CTextureMgr();
     }
     
@@ -28,26 +28,24 @@ CTextureMgr* CTextureMgr::GetInstance()
 
 bool CTextureMgr::AddTexture(const std::string& strPath, CBaseTexture* pTexture)
 {
-    if (NULL == pTexture || strPath.empty())
-    {
-        printf("[CTextureMgr::AddTexture] pTexture[%p], strPath[%s]\n", pTexture, strPath.c_str());
+    if (NULL == pTexture || strPath.empty()) {
+        printf("[CTextureMgr::AddTexture] error: pTexture[%p], strPath[%s]\n", pTexture, strPath.c_str());
         return false;
-    }
-    else if (m_mpTexture.end() != m_mpTexture.find(strPath))
-    {
-        printf("[CTextureMgr::AddTexture] strPath[%s] has exist.\n", strPath.c_str());
+    } else if (m_mpTexture.end() != m_mpTexture.find(strPath)) {
+        printf("[CTextureMgr::AddTexture] warning: strPath[%s] has exist.\n", strPath.c_str());
     }
     
     m_mpTexture[strPath] = pTexture;
+#ifdef TEXTURE_MGR_LOG
     printf("[CTextureMgr::AddTexture] strPath[%s], texture[%p] =======\n", strPath.c_str(), pTexture);
+#endif
     return true;
 }
 
 CBaseTexture* CTextureMgr::GetTexture(const std::string& strPath)
 {
-    if (strPath.empty() || m_mpTexture.end() == m_mpTexture.find(strPath))
-    {
-        printf("[CTextureMgr::GetTexture] path[%s] is empty, or not exist\n", strPath.c_str());
+    if (strPath.empty() || m_mpTexture.end() == m_mpTexture.find(strPath)) {
+        printf("[CTextureMgr::GetTexture] error: path[%s] is empty, or not exist\n", strPath.c_str());
         return NULL;
     }
     
@@ -61,7 +59,7 @@ void CTextureMgr::GenNewVideoPlayPic()
 
 std::string CTextureMgr::GetVideoPlayPic()
 {
-    char strPic[PIC_FILENAME_LENGTH];
+    char strPic[PIC_FILENAME_MAX_LENGTH];
     sprintf(strPic, "%s%d", kszVideoPlayImagePath, m_nVideoPlayPicIndex);
     return strPic;
 }
